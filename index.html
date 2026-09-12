@@ -10,6 +10,12 @@
 </head>
 <body>
 <style>
+  html, body {
+    margin: 0;
+    min-height: 100%;
+    background: #070908;
+  }
+  body { min-height: 100vh; }
   #toxic-command-center-concept [hidden] { display: none !important; }
   #toxic-command-center-concept {
     --toxic-bg: #070908;
@@ -29,11 +35,11 @@
       radial-gradient(circle at 12% 10%, rgba(124,255,0,.13), transparent 27%),
       radial-gradient(circle at 86% 5%, rgba(255,43,138,.13), transparent 30%),
       linear-gradient(180deg, #090c0a, var(--toxic-bg));
-    border: 1px solid #252c28;
-    border-radius: 18px;
+    border: 0;
+    border-radius: 0;
     overflow: hidden;
-    min-height: 720px;
-    box-shadow: 0 24px 70px rgba(0,0,0,.45);
+    min-height: 100vh;
+    box-shadow: none;
   }
 
   #toxic-command-center-concept * { box-sizing: border-box; }
@@ -340,6 +346,12 @@
   #toxic-command-center-concept .tcc-item-list li { display: flex; align-items: center; gap: 10px; padding: 10px 0; border-top: 1px solid var(--toxic-line); color: var(--toxic-muted); }
   #toxic-command-center-concept .tcc-item-list i { color: var(--toxic-green); flex: 0 0 auto; }
   #toxic-command-center-concept .tcc-panel:nth-child(even) .tcc-item-list i { color: var(--toxic-pink); }
+  #toxic-command-center-concept .tcc-console-panel { grid-column: 1 / -1; }
+  #toxic-command-center-concept .tcc-console-panel .tcc-item-list {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0 18px;
+  }
 
   #toxic-command-center-concept .tcc-flow {
     display: grid;
@@ -406,6 +418,7 @@
     #toxic-command-center-concept .tcc-hero { padding: 28px 20px; }
     #toxic-command-center-concept .tcc-section-banner { min-height: 220px; padding: 24px 20px; }
     #toxic-command-center-concept .tcc-command-tools .tcc-search { width: 100%; }
+    #toxic-command-center-concept .tcc-console-panel .tcc-item-list { grid-template-columns: 1fr; }
     #toxic-command-center-concept .tcc-live-state { margin-left: 0 !important; }
   }
 </style>
@@ -468,8 +481,9 @@
     <section id="tcc-peripherals" role="tabpanel" hidden>
       <div class="tcc-section-banner tcc-banner-peripherals"><div class="tcc-banner-copy"><span class="tcc-section-icon"><i data-lucide="gamepad-2" aria-hidden="true"></i></span><h2>System Peripherals</h2><p>The equipment connected to each side of the dual-PC setup.</p></div></div>
       <div class="tcc-section-content tcc-spec-grid">
-        <article class="tcc-panel"><div class="tcc-panel-head"><i data-lucide="gamepad-2" aria-hidden="true"></i><h3>Gaming Peripherals</h3></div><ul class="tcc-item-list"><li><i data-lucide="monitor" aria-hidden="true"></i>Sceptre C325B-FWD240.A1 32-inch curved FHD 240Hz monitor</li><li><i data-lucide="panels-top-left" aria-hidden="true"></i>Elgato Stream Deck</li><li><i data-lucide="sliders-horizontal" aria-hidden="true"></i>FIFINE SC3 audio mixer</li><li><i data-lucide="speaker" aria-hidden="true"></i>Redragon GS560 RGB desktop soundbar</li><li><i data-lucide="headphones" aria-hidden="true"></i>Audiovance Vibes 202 wired IEMs</li><li><i data-lucide="mouse-pointer-2" aria-hidden="true"></i>Razer Basilisk V3 Pro 35K mouse</li><li><i data-lucide="keyboard" aria-hidden="true"></i>Razer BlackWidow V4 Pro keyboard</li><li><i data-lucide="grid-3x3" aria-hidden="true"></i>Razer Tartarus Pro gaming keypad</li><li><i data-lucide="gamepad" aria-hidden="true"></i>8BitDo Ultimate 2 Bluetooth controller</li><li><i data-lucide="rectangle-horizontal" aria-hidden="true"></i>EUREKA ERGONOMIC 72-inch wing-shaped gaming desk</li><li><i data-lucide="gamepad-2" aria-hidden="true"></i>PlayStation 5</li><li><i data-lucide="gamepad-2" aria-hidden="true"></i>Nintendo Switch</li><li><i data-lucide="split" aria-hidden="true"></i>ROOFULL 4-Port 8K HDMI 2.1 switch</li></ul></article>
+        <article class="tcc-panel"><div class="tcc-panel-head"><i data-lucide="gamepad-2" aria-hidden="true"></i><h3>Gaming Peripherals</h3></div><ul class="tcc-item-list"><li><i data-lucide="monitor" aria-hidden="true"></i>Sceptre C325B-FWD240.A1 32-inch curved FHD 240Hz monitor</li><li><i data-lucide="panels-top-left" aria-hidden="true"></i>Elgato Stream Deck</li><li><i data-lucide="sliders-horizontal" aria-hidden="true"></i>FIFINE SC3 audio mixer</li><li><i data-lucide="speaker" aria-hidden="true"></i>Redragon GS560 RGB desktop soundbar</li><li><i data-lucide="headphones" aria-hidden="true"></i>Audiovance Vibes 202 wired IEMs</li><li><i data-lucide="mouse-pointer-2" aria-hidden="true"></i>Razer Basilisk V3 Pro 35K mouse</li><li><i data-lucide="keyboard" aria-hidden="true"></i>Razer BlackWidow V4 Pro keyboard</li><li><i data-lucide="grid-3x3" aria-hidden="true"></i>Razer Tartarus Pro gaming keypad</li><li><i data-lucide="gamepad" aria-hidden="true"></i>8BitDo Ultimate 2 Bluetooth controller</li><li><i data-lucide="rectangle-horizontal" aria-hidden="true"></i>EUREKA ERGONOMIC 72-inch wing-shaped gaming desk</li></ul></article>
         <article class="tcc-panel"><div class="tcc-panel-head"><i data-lucide="radio-tower" aria-hidden="true"></i><h3>Streaming Peripherals</h3></div><ul class="tcc-item-list"><li><i data-lucide="monitor" aria-hidden="true"></i>Sceptre C325B-FWD240 32-inch FHD monitor, portrait</li><li><i data-lucide="scan-line" aria-hidden="true"></i>Elgato 4K X capture device</li><li><i data-lucide="mic" aria-hidden="true"></i>FIFINE AM8 Pro USB microphone</li><li><i data-lucide="camera" aria-hidden="true"></i>Elgato Facecam MK.2</li><li><i data-lucide="sun" aria-hidden="true"></i>Elgato Key Light, 2800 lumens</li></ul></article>
+        <article class="tcc-panel tcc-console-panel"><div class="tcc-panel-head"><i data-lucide="gamepad-2" aria-hidden="true"></i><h3>Console &amp; Shared Equipment</h3></div><ul class="tcc-item-list"><li><i data-lucide="gamepad-2" aria-hidden="true"></i>PlayStation 5</li><li><i data-lucide="gamepad-2" aria-hidden="true"></i>Nintendo Switch</li><li><i data-lucide="split" aria-hidden="true"></i>ROOFULL 4-Port 8K HDMI 2.1 switch</li></ul></article>
       </div>
     </section>
 
