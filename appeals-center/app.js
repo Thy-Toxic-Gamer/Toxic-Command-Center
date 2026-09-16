@@ -297,7 +297,30 @@ function renderCaseReview() {
   for (const value of Object.keys(STATUS_LABELS)) { const option = document.createElement("option"); option.value = value; option.textContent = STATUS_LABELS[value]; option.selected = value === item.status; select.append(option); } statusLabel.append(select);
   const responseLabel = document.createElement("label"); responseLabel.innerHTML = "<span>Response to appellant</span>"; const response = document.createElement("textarea"); response.name = "response"; response.rows = 7; response.placeholder = "Explain the decision or ask for the exact information still needed…"; response.value = item.staff_response || ""; responseLabel.append(response);
   const save = document.createElement("button"); save.className = "submit-button button"; save.type = "submit"; save.innerHTML = '<i data-lucide="circle-check"></i>Save and publish update';
-  form.append(statusLabel, responseLabel, save);
+  const actions = document.createElement("div"); actions.className = "decision-actions"; actions.append(save);
+  if (appState.staff?.role === "owner") {
+    const remove = document.createElement("button");
+    remove.className = "button button--danger";
+    remove.type = "button";
+    remove.innerHTML = '<i data-lucide="trash-2"></i>Delete permanently';
+    remove.addEventListener("click", async () => {
+      const confirmed = window.confirm(`Permanently delete case #${item.case_number} and its complete event history? This cannot be undone.`);
+      if (!confirmed) return;
+      remove.disabled = true; save.disabled = true; remove.textContent = "Deleting…"; staffNotice("error", "");
+      try {
+        const data = await api("delete_case", { id: item.id });
+        appState.cases = appState.cases.filter((entry) => entry.id !== item.id);
+        appState.selected = null;
+        byId("active-count").textContent = String(appState.cases.filter((entry) => OPEN_STATUSES.has(entry.status)).length);
+        renderStaffQueue(); renderCaseReview(); staffNotice("success", `Case #${data.case.case_number} was permanently deleted.`);
+      } catch (error) {
+        staffNotice("error", error.message); remove.disabled = false; save.disabled = false; remove.innerHTML = '<i data-lucide="trash-2"></i>Delete permanently';
+        if (window.lucide) window.lucide.createIcons();
+      }
+    });
+    actions.append(remove);
+  }
+  form.append(statusLabel, responseLabel, actions);
   form.addEventListener("submit", async (event) => {
     event.preventDefault(); save.disabled = true; save.textContent = "Saving…"; staffNotice("error", "");
     try {
