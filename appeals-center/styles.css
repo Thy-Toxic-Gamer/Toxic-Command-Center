@@ -253,18 +253,18 @@ a { color: inherit; }
 
 .page-intro {
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
+  grid-template-columns: auto minmax(0, 620px) minmax(280px, 1fr);
   align-items: center;
   gap: 18px;
   max-width: 1180px;
-  min-height: 170px;
+  min-height: 250px;
   margin: 28px auto 0;
   padding: 30px 32px;
   border: 1px solid var(--line);
   border-radius: 16px;
   background:
-    linear-gradient(145deg, rgba(124, 255, 0, 0.045), rgba(255, 43, 138, 0.03)),
-    rgba(8, 11, 9, 0.94);
+    linear-gradient(90deg, rgba(3, 6, 4, 0.98) 0%, rgba(3, 6, 4, 0.91) 39%, rgba(3, 6, 4, 0.42) 67%, rgba(3, 6, 4, 0.08) 100%),
+    url("appeals-banner.webp") center right / cover no-repeat;
 }
 
 .page-intro__icon {
@@ -296,27 +296,6 @@ a { color: inherit; }
   font-size: 0.88rem;
   line-height: 1.55;
 }
-
-.page-intro__status {
-  display: grid;
-  gap: 8px;
-  min-width: 175px;
-}
-
-.page-intro__status span {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  min-height: 32px;
-  padding: 0 10px;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  color: var(--muted);
-  background: var(--panel);
-  font-size: 0.7rem;
-}
-
-.page-intro__status svg { width: 14px; height: 14px; color: var(--acid); }
 
 .workspace {
   max-width: 1180px;
@@ -713,7 +692,6 @@ footer {
   .topbar nav { order: 3; flex-basis: 100%; justify-content: flex-start; overflow-x: auto; flex-wrap: nowrap; }
   .account-slot { margin-left: auto; }
   .page-intro { grid-template-columns: auto minmax(0, 1fr); }
-  .page-intro__status { grid-column: 2; grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .panel-grid { grid-template-columns: 1fr; }
   .side-rail { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .staff-topbar { align-items: flex-start; flex-wrap: wrap; }
@@ -736,7 +714,6 @@ footer {
   .page-intro { margin: 14px 12px 0; padding: 22px 18px; border-radius: 13px; }
   .page-intro__icon { width: 44px; height: 44px; }
   .page-intro h1 { font-size: 1.8rem; }
-  .page-intro__status { grid-column: 1 / -1; grid-template-columns: 1fr; width: 100%; }
   .workspace { margin: 14px 12px 32px; }
   .appeal-form,
   .track-panel,

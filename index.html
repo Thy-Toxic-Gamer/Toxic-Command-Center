@@ -105,6 +105,26 @@
     cursor: pointer;
   }
 
+  #toxic-command-center-concept .tcc-nav a {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 38px;
+    padding: 0 13px;
+    color: var(--toxic-muted);
+    border: 1px solid transparent;
+    border-radius: 9px;
+    background: transparent;
+    font: inherit;
+    text-decoration: none;
+  }
+
+  #toxic-command-center-concept .tcc-nav a:hover {
+    color: var(--toxic-text);
+    border-color: rgba(124,255,0,.38);
+    background: var(--toxic-green-soft);
+  }
+
   #toxic-command-center-concept .tcc-nav button[aria-selected="true"] {
     color: var(--toxic-text);
     border-color: rgba(124,255,0,.38);
@@ -464,6 +484,7 @@
       <button type="button" role="tab" aria-selected="false" aria-controls="tcc-specs" data-tab="tcc-specs">Specs</button>
       <button type="button" role="tab" aria-selected="false" aria-controls="tcc-peripherals" data-tab="tcc-peripherals">Peripherals</button>
       <button type="button" role="tab" aria-selected="false" aria-controls="tcc-socials" data-tab="tcc-socials">Socials</button>
+      <a class="tcc-nav-link" href="./appeals-center/">Appeals</a>
     </nav>
   </header>
 
