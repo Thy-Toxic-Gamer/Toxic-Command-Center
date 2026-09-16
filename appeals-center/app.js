@@ -150,7 +150,7 @@ function renderPortalAccount() {
   slot.append(logout);
 
   byId("identity-title").textContent = `Verified as ${appState.viewer.displayName || appState.viewer.login}`;
-  byId("identity-copy").textContent = "This Twitch identity will be attached to your appeal.";
+  byId("identity-copy").textContent = `Twitch ID ${appState.viewer.id} · This verified identity will be attached to your appeal.`;
   byId("submit-button").innerHTML = 'Submit appeal <i data-lucide="arrow-right"></i>';
   byId("track-guest").hidden = true;
   byId("track-auth").hidden = false;
