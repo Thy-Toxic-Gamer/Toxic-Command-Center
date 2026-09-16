@@ -2,7 +2,7 @@
 
 const API_URL = "https://ubldjtsjfudogtgxakiq.supabase.co/functions/v1/appeals-api";
 const API_KEY = "sb_publishable_Fhl-Co0p5QNJKJ7ou2Te2Q_FD8BIywM";
-const TWITCH_CLIENT_ID = "njdm6cnhszqsrwf3us76rv4p9642o5";
+const TWITCH_CLIENT_ID = "ht2kbpz12tpv060f2259jn9recng0x";
 const REDIRECT_URI = "https://thy-toxic-gamer.github.io/Toxic-Command-Center/appeals-center/";
 const TOKEN_KEY = "thy_toxic_appeals_twitch_token";
 const OAUTH_STATE_KEY = "thy_toxic_appeals_oauth_state";
