@@ -674,6 +674,10 @@ footer {
 .evidence-list { display: grid; gap: 7px; margin-bottom: 20px; }
 .evidence-list a { overflow: hidden; color: var(--info); font-size: 0.72rem; text-overflow: ellipsis; white-space: nowrap; }
 .decision-form { padding-top: 20px; border-top: 1px solid var(--line); }
+.decision-actions { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 10px; align-items: center; margin-top: 4px; }
+.decision-actions .submit-button { margin-top: 0; }
+.button--danger { min-height: 48px; border-color: rgba(255, 111, 145, 0.45); color: #ffdce5; background: rgba(255, 111, 145, 0.1); }
+.button--danger:hover { border-color: rgba(255, 111, 145, 0.75); background: rgba(255, 111, 145, 0.18); box-shadow: 0 0 22px rgba(255, 43, 138, 0.12); }
 
 @keyframes spin { to { transform: rotate(360deg); } }
 
@@ -703,6 +707,7 @@ footer {
 }
 
 @media (max-width: 660px) {
+  .decision-actions { grid-template-columns: 1fr; }
   .topbar,
   .staff-topbar { padding: 13px 14px; }
   .brand strong { font-size: 12px; }
