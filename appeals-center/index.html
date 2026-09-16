@@ -12,22 +12,20 @@
   <link rel="stylesheet" href="styles.css">
   <script src="https://unpkg.com/lucide@0.468.0/dist/umd/lucide.min.js" defer></script>
   <script src="app.js" defer></script>
-  <style>
-    [hidden]{display:none!important}.brand-return{color:inherit;text-decoration:none}.identity-card{width:100%;cursor:pointer;text-align:left}.button{display:inline-flex;align-items:center;justify-content:center;gap:.5rem;border:1px solid transparent;border-radius:4px;padding:.68rem 1rem;background:#161c19;color:#eef5f1;cursor:pointer;font-weight:800}.button--outline{border-color:#35413b;background:transparent}.button:disabled{cursor:not-allowed;opacity:.55}.account-actions{display:flex;align-items:center;gap:.55rem}.case-search input{padding:0 .75rem}.notice{margin-bottom:1rem}.error-detail{color:#ff9bb2}.home-link{color:#9aa49f;text-decoration:none;font-size:.72rem;text-transform:uppercase}.home-link:hover{color:var(--acid)}
-  </style>
 </head>
 <body data-page="portal">
 <main class="site-shell">
   <div class="ambient ambient--green"></div><div class="ambient ambient--pink"></div>
   <header class="topbar">
     <a class="brand" href="./" aria-label="ThyToxicGamer Appeals Center home">
-      <span class="toxic-mark toxic-mark--small" aria-hidden="true"><span class="toxic-mark__orbit"></span><svg viewBox="0 0 96 96"><path d="M48 38c-10-21-31-12-30 4 0 9 8 15 18 15-10 5-14 16-9 24 9 14 29 7 29-9 4 15 24 18 31 4 5-11-4-22-17-21 12-6 14-21 4-29-12-11-25-3-26 12Z"></path><circle cx="48" cy="53" r="9"></circle></svg></span>
-      <span><strong>THY TOXIC</strong><em>APPEALS CENTER</em></span>
+      <span class="brand-mark" aria-hidden="true"><i data-lucide="radiation"></i></span>
+      <span><strong>TOXIC APPEALS CENTER</strong><em>ThyToxicGamer</em></span>
     </a>
     <nav aria-label="Primary navigation">
       <button class="nav-active" type="button" data-view="submit">Submit</button>
       <button type="button" data-view="track">Track case</button>
       <button type="button" data-view="rules">Before you appeal</button>
+      <a class="central-link" href="../"><i data-lucide="layout-dashboard"></i><span>Central Command</span></a>
     </nav>
     <div class="account-slot" id="account-slot"><span class="account-loading"></span></div>
   </header>
@@ -74,7 +72,7 @@
       <div class="rules-cta"><i data-lucide="shield-check"></i><div><h3>Ready to make your case?</h3><p>Verify your identity and send one clear, complete appeal.</p></div><button class="button" type="button" data-view="submit">Start appeal <i data-lucide="arrow-right"></i></button></div>
     </div>
   </section>
-  <footer><span>THY TOXIC NETWORK • APPEALS</span><a class="home-link" href="../">Return to Toxic Command Center</a><span>Respect the process. Protect the community.</span></footer>
+  <footer><span>THYTOXICGAMER • APPEALS CENTER</span><a class="home-link" href="../">Return to Toxic Command Center</a><span>Respect the process. Protect the community.</span></footer>
 </main>
 </body>
 </html>
