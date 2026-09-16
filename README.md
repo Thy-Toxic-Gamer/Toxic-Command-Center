@@ -8,6 +8,7 @@ The public hub for ThyToxicGamer.
 - System Specifications
 - System Peripherals
 - Official Socials
+- Appeals Center
 
 ## Hosting
 

@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Submit and track a community moderation appeal for ThyToxicGamer.">
+  <meta name="theme-color" content="#050807">
+  <meta name="referrer" content="no-referrer">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://unpkg.com; style-src 'self' 'unsafe-inline'; img-src 'self' https://static-cdn.jtvnw.net data:; connect-src https://ubldjtsjfudogtgxakiq.supabase.co; base-uri 'self'; frame-ancestors 'none'">
+  <title>Appeals Center | ThyToxicGamer</title>
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="styles.css">
+  <script src="https://unpkg.com/lucide@0.468.0/dist/umd/lucide.min.js" defer></script>
+  <script src="app.js" defer></script>
+  <style>
+    [hidden]{display:none!important}.brand-return{color:inherit;text-decoration:none}.identity-card{width:100%;cursor:pointer;text-align:left}.button{display:inline-flex;align-items:center;justify-content:center;gap:.5rem;border:1px solid transparent;border-radius:4px;padding:.68rem 1rem;background:#161c19;color:#eef5f1;cursor:pointer;font-weight:800}.button--outline{border-color:#35413b;background:transparent}.button:disabled{cursor:not-allowed;opacity:.55}.account-actions{display:flex;align-items:center;gap:.55rem}.case-search input{padding:0 .75rem}.notice{margin-bottom:1rem}.error-detail{color:#ff9bb2}.home-link{color:#9aa49f;text-decoration:none;font-size:.72rem;text-transform:uppercase}.home-link:hover{color:var(--acid)}
+  </style>
+</head>
+<body data-page="portal">
+<main class="site-shell">
+  <div class="ambient ambient--green"></div><div class="ambient ambient--pink"></div>
+  <header class="topbar">
+    <a class="brand" href="./" aria-label="ThyToxicGamer Appeals Center home">
+      <span class="toxic-mark toxic-mark--small" aria-hidden="true"><span class="toxic-mark__orbit"></span><svg viewBox="0 0 96 96"><path d="M48 38c-10-21-31-12-30 4 0 9 8 15 18 15-10 5-14 16-9 24 9 14 29 7 29-9 4 15 24 18 31 4 5-11-4-22-17-21 12-6 14-21 4-29-12-11-25-3-26 12Z"></path><circle cx="48" cy="53" r="9"></circle></svg></span>
+      <span><strong>THY TOXIC</strong><em>APPEALS CENTER</em></span>
+    </a>
+    <nav aria-label="Primary navigation">
+      <button class="nav-active" type="button" data-view="submit">Submit</button>
+      <button type="button" data-view="track">Track case</button>
+      <button type="button" data-view="rules">Before you appeal</button>
+    </nav>
+    <div class="account-slot" id="account-slot"><span class="account-loading"></span></div>
+  </header>
+
+  <section class="hero" id="top">
+    <div class="hero-copy">
+      <span class="eyebrow"><span class="pulse-dot"></span> Moderation review channel</span>
+      <h1>Clear the air.<br><span>Make your case.</span></h1>
+      <p>One secure place to appeal a moderation action, attach context, and see the final decision. Every case is reviewed by the ThyToxicGamer team.</p>
+      <div class="trust-row"><span><i data-lucide="lock-keyhole"></i> Private by default</span><span><i data-lucide="shield-check"></i> Human reviewed</span><span><i data-lucide="clock-3"></i> One active case</span></div>
+    </div>
+    <div class="reactor-wrap" aria-hidden="true"><span class="reactor-ring reactor-ring--one"></span><span class="reactor-ring reactor-ring--two"></span><span class="toxic-mark"><span class="toxic-mark__orbit"></span><svg viewBox="0 0 96 96"><path d="M48 38c-10-21-31-12-30 4 0 9 8 15 18 15-10 5-14 16-9 24 9 14 29 7 29-9 4 15 24 18 31 4 5-11-4-22-17-21 12-6 14-21 4-29-12-11-25-3-26 12Z"></path><circle cx="48" cy="53" r="9"></circle></svg></span><span class="reactor-label">APPEALS<br><strong>ONLINE</strong></span></div>
+  </section>
+
+  <section class="workspace" aria-live="polite">
+    <div class="section-tabs" role="tablist" aria-label="Appeals center sections">
+      <button role="tab" aria-selected="true" type="button" data-view="submit"><i data-lucide="clipboard-check"></i> New appeal</button>
+      <button role="tab" aria-selected="false" type="button" data-view="track"><i data-lucide="file-search"></i> Track case</button>
+      <button role="tab" aria-selected="false" type="button" data-view="rules"><i data-lucide="shield-check"></i> Review rules</button>
+    </div>
+    <div id="notice" hidden></div>
+
+    <div id="view-submit" class="panel-grid">
+      <form class="appeal-form" id="appeal-form">
+        <div class="panel-heading"><span>01</span><div><h2>Tell us what happened</h2><p>Be honest, specific, and concise. Staff can already see the moderation record.</p></div></div>
+        <button class="identity-card" id="identity-card" type="button"><span class="twitch-icon"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M4 2 1 5v15h5v3l3-3h4l7-7V2H4Zm14 10-4 4h-4l-3 3v-3H3V4h15v8Zm-3-6h-2v6h2V6Zm-5 0H8v6h2V6Z"></path></svg></span><span><strong id="identity-title">Verify your Twitch account</strong><small id="identity-copy">Your identity is attached securely to this appeal.</small></span><i data-lucide="arrow-right"></i></button>
+        <div class="field-row"><label><span>Action being appealed</span><select name="punishmentType" required><option value="" disabled selected>Select one</option><option value="ban">Ban</option><option value="timeout">Timeout</option><option value="mute">Mute</option><option value="warning">Warning</option><option value="other">Other action</option></select></label><label><span>Reference <small>optional</small></span><input name="punishmentReference" maxlength="250" placeholder="Date, message, or case note"></label></div>
+        <label><span>Why should this action be reviewed?</span><textarea name="reason" minlength="20" maxlength="5000" required rows="8" placeholder="Explain what happened, what staff may have missed, and why you believe the action should change…"></textarea><small class="field-hint">20–5,000 characters. One clear explanation is stronger than repeated messages.</small></label>
+        <label><span>Evidence links <small>optional, one per line</small></span><textarea name="evidence" rows="3" placeholder="https://clips.twitch.tv/...&#10;https://imgur.com/..."></textarea><small class="field-hint">Up to five public links. Do not include private information.</small></label>
+        <button class="submit-button button" id="submit-button" type="submit">Sign in and continue <i data-lucide="arrow-right"></i></button>
+      </form>
+      <aside class="side-rail"><div class="info-block"><span class="info-number">24h</span><h3>Submission cooldown</h3><p>Wait for the current case to close before submitting another.</p></div><div class="info-block"><span class="info-number">01</span><h3>One active case</h3><p>Duplicate appeals slow down review and are automatically blocked.</p></div><div class="info-block info-block--pink"><i data-lucide="triangle-alert"></i><h3>Appeals are not arguments</h3><p>Threats, harassment, or knowingly false evidence can close a case immediately.</p></div></aside>
+    </div>
+
+    <div id="view-track" class="track-panel" hidden>
+      <div class="panel-heading"><span>02</span><div><h2>Case status</h2><p>Sign in with the same Twitch account used to submit the appeal.</p></div></div>
+      <div id="track-guest" class="empty-state"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M4 2 1 5v15h5v3l3-3h4l7-7V2H4Zm14 10-4 4h-4l-3 3v-3H3V4h15v8Zm-3-6h-2v6h2V6Zm-5 0H8v6h2V6Z"></path></svg><h3>Verify your Twitch identity</h3><p>Your case history is only visible to you and authorized staff.</p><button class="twitch-button" id="track-signin" type="button">Continue with Twitch</button></div>
+      <div id="track-auth" hidden><form class="case-search" id="case-search"><input id="case-number" placeholder="Case number, e.g. 1042" inputmode="numeric"><button class="button" type="submit"><i data-lucide="file-search"></i> Find case</button><button class="button button--outline" id="all-cases" type="button">All my cases</button></form><div class="case-list" id="case-list"></div><div class="empty-state empty-state--compact" id="case-empty"><i data-lucide="file-search"></i><h3>No cases loaded</h3><p>Enter a case number or choose “All my cases.”</p></div></div>
+    </div>
+
+    <div id="view-rules" class="rules-panel" hidden>
+      <div class="panel-heading"><span>03</span><div><h2>Before you appeal</h2><p>A strong appeal helps staff make a fair decision quickly.</p></div></div>
+      <div class="rules-grid"><article><strong>01</strong><h3>Own your part</h3><p>Acknowledge what happened. An appeal is a request for review, not a place to attack staff or other users.</p></article><article><strong>02</strong><h3>Add useful context</h3><p>Include dates, clips, screenshots, or details that directly affect the decision. Never submit private information.</p></article><article><strong>03</strong><h3>Submit once</h3><p>One complete appeal is enough. Duplicate cases and attempts to bypass the system can be closed.</p></article><article><strong>04</strong><h3>Accept the outcome</h3><p>Staff will explain the final result when appropriate. Decisions may be accepted, denied, or closed.</p></article></div>
+      <div class="rules-cta"><i data-lucide="shield-check"></i><div><h3>Ready to make your case?</h3><p>Verify your identity and send one clear, complete appeal.</p></div><button class="button" type="button" data-view="submit">Start appeal <i data-lucide="arrow-right"></i></button></div>
+    </div>
+  </section>
+  <footer><span>THY TOXIC NETWORK • APPEALS</span><a class="home-link" href="../">Return to Toxic Command Center</a><span>Respect the process. Protect the community.</span></footer>
+</main>
+</body>
+</html>
