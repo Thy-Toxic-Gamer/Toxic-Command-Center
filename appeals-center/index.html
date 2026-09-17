@@ -12,9 +12,9 @@
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://unpkg.com; style-src 'self' 'unsafe-inline'; img-src 'self' https://static-cdn.jtvnw.net https://cdn.discordapp.com data:; connect-src https://ubldjtsjfudogtgxakiq.supabase.co; base-uri 'self'; frame-ancestors 'none'">
   <title>Appeals Center | ThyToxicGamer</title>
   <link rel="icon" href="favicon.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="styles.css?v=20260917-14">
+  <link rel="stylesheet" href="styles.css?v=20260917-19">
   <script src="https://unpkg.com/lucide@0.468.0/dist/umd/lucide.min.js" defer></script>
-  <script src="app.js?v=20260917-14" defer></script>
+  <script src="app.js?v=20260917-19" defer></script>
 </head>
 <body data-page="portal">
 <main class="site-shell">
@@ -53,7 +53,7 @@
         </div>
         <button class="identity-card" id="identity-card" type="button"><span id="identity-icon"></span><span><strong id="identity-title">Verify your Twitch account</strong><small id="identity-copy">Your verified platform identity will be attached securely to this appeal.</small></span><i data-lucide="arrow-right"></i></button>
         <div class="field-row"><label><span>Action being appealed</span><select name="punishmentType" required><option value="" disabled selected>Select one</option><option value="ban">Ban</option><option value="timeout">Timeout</option><option value="mute">Mute</option><option value="warning">Warning</option><option value="other">Other action</option></select></label><label><span>Reference <small id="reference-optional">optional</small></span><input id="punishment-reference" name="punishmentReference" maxlength="250" placeholder="Date, message, or case note"><select id="discord-case-select" aria-label="Discord ticket" hidden><option value="">Select an eligible ticket</option></select></label></div>
-        <label><span>Why should this action be reviewed?</span><textarea name="reason" minlength="20" maxlength="5000" required rows="8" placeholder="Explain what happened, what staff may have missed, and why you believe the action should change…"></textarea><small class="field-hint">20–5,000 characters. One clear explanation is stronger than repeated messages.</small></label>
+        <label><span>Why should this action be reviewed? <small>optional</small></span><textarea name="reason" maxlength="5000" rows="8" placeholder="Explain what happened, what staff may have missed, and why you believe the action should change…"></textarea><small class="field-hint">Optional, up to 5,000 characters. If left blank, staff may request a reason before deciding.</small></label>
         <label><span>Evidence links <small>optional, one per line</small></span><textarea name="evidence" rows="3" placeholder="https://clips.twitch.tv/...&#10;https://imgur.com/..."></textarea><small class="field-hint">Up to five public links. Do not include private information.</small></label>
         <button class="submit-button button" id="submit-button" type="submit">Sign in and continue <i data-lucide="arrow-right"></i></button>
       </form>
