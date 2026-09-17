@@ -18,6 +18,7 @@ const OAUTH_PURPOSE_KEY = "thy_toxic_appeals_oauth_purpose";
 const RETURN_KEY = "thy_toxic_appeals_return";
 const AFTER_AUTH_VIEW_KEY = "thy_toxic_appeals_after_auth_view";
 const LINK_PENDING_KEY = "thy_toxic_appeals_link_pending";
+const SELECTED_PLATFORM_KEY = "thy_toxic_appeals_selected_platform";
 const OPEN_STATUSES = new Set(["submitted", "active", "appealed", "under_review", "needs_information", "accepted_pending_reversal"]);
 const STATUS_LABELS = {
   pending: "Pending", active: "Active", submitted: "Submitted", appealed: "Appealed",
@@ -287,8 +288,13 @@ async function initPortal() {
   const notice = byId("notice");
   const authError = sessionStorage.getItem("thy_toxic_appeals_auth_error");
   if (authError) { sessionStorage.removeItem("thy_toxic_appeals_auth_error"); setNotice(notice, "error", authError); }
+  const savedPlatform = sessionStorage.getItem(SELECTED_PLATFORM_KEY);
+  if (savedPlatform && PLATFORM_LABELS[savedPlatform]) byId("appeal-platform").value = savedPlatform;
   document.querySelectorAll("[data-view]").forEach((button) => button.addEventListener("click", () => setPortalView(button.dataset.view)));
-  byId("appeal-platform").addEventListener("change", renderIdentityCard);
+  byId("appeal-platform").addEventListener("change", () => {
+    sessionStorage.setItem(SELECTED_PLATFORM_KEY, selectedPlatform());
+    renderIdentityCard();
+  });
   byId("identity-card").addEventListener("click", () => {
     const identityPlatform = requiredIdentityPlatform();
     if (!appState.identities[identityPlatform]) startAuth(identityPlatform, "./", appState.viewer ? "link" : "signin");
