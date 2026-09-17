@@ -192,6 +192,44 @@ a { color: inherit; }
   border-left: 1px solid var(--line);
 }
 
+.signin-menu { position: relative; }
+
+.signin-trigger,
+.link-account {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  min-height: 34px;
+  padding: 0 11px;
+  border: 1px solid rgba(124, 255, 0, 0.38);
+  border-radius: 8px;
+  color: var(--text);
+  background: var(--acid-soft);
+  font-size: 0.72rem;
+  font-weight: 750;
+  cursor: pointer;
+}
+
+.signin-trigger svg { width: 14px; height: 14px; }
+.link-account { border-color: var(--line-strong); color: var(--muted); background: var(--panel-2); }
+.link-account:hover { color: var(--text); border-color: rgba(124, 255, 0, 0.4); }
+
+.signin-menu__panel {
+  position: absolute;
+  z-index: 40;
+  top: calc(100% + 8px);
+  right: 0;
+  display: grid;
+  gap: 7px;
+  width: 218px;
+  padding: 9px;
+  border: 1px solid var(--line-strong);
+  border-radius: 11px;
+  background: rgba(13, 17, 15, 0.98);
+  box-shadow: 0 18px 46px rgba(0, 0, 0, 0.42);
+}
+
 .account-loading {
   width: 18px;
   height: 18px;
@@ -368,21 +406,40 @@ a { color: inherit; }
 }
 
 .identity-card:hover { border-color: #7657a6; }
+.identity-card--verified { border-color: rgba(124, 255, 0, 0.38); background: linear-gradient(90deg, rgba(124, 255, 0, 0.1), rgba(16, 20, 17, 0.72)); }
 .identity-card > svg { width: 17px; height: 17px; color: var(--muted); }
 .identity-card strong { display: block; font-size: 0.82rem; }
 .identity-card small { display: block; margin-top: 2px; color: var(--muted); font-size: 0.7rem; }
 
-.twitch-icon {
+.provider-icon {
   display: grid;
   place-items: center;
   width: 40px;
   height: 40px;
   border-radius: 9px;
   color: #fff;
-  background: #9146ff;
-  box-shadow: 0 0 18px rgba(145, 70, 255, 0.23);
 }
-.twitch-icon svg { width: 21px; height: 21px; }
+.provider-icon svg { width: 21px; height: 21px; }
+.provider-icon--twitch { background: #9146ff; box-shadow: 0 0 18px rgba(145, 70, 255, 0.23); }
+.provider-icon--discord { background: #5865f2; box-shadow: 0 0 18px rgba(88, 101, 242, 0.24); }
+.account-slot > .provider-icon { width: 31px; height: 31px; border-radius: 50%; }
+.account-slot > .provider-icon svg { width: 16px; height: 16px; }
+
+.platform-section {
+  display: grid;
+  grid-template-columns: minmax(190px, 0.42fr) minmax(0, 1fr);
+  align-items: end;
+  gap: 14px;
+  margin-bottom: 16px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 11px;
+  background: rgba(7, 11, 8, 0.54);
+}
+
+.platform-section label { margin: 0; }
+.platform-section p { display: flex; align-items: center; gap: 8px; margin: 0 0 4px; color: var(--muted); font-size: 0.7rem; line-height: 1.5; }
+.platform-section p svg { width: 16px; height: 16px; flex: 0 0 16px; color: var(--acid); }
 
 .field-row {
   display: grid;
@@ -465,6 +522,27 @@ textarea:focus { outline: 0; border-color: rgba(124, 255, 0, 0.56); background: 
 .twitch-button--small { min-height: 34px; padding: 0 11px; border-radius: 8px; font-size: 0.72rem; }
 .submit-button { width: 100%; min-height: 48px; margin-top: 4px; }
 
+.provider-actions { display: flex; flex-wrap: wrap; justify-content: center; gap: 9px; margin-top: 6px; }
+.provider-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  min-height: 40px;
+  padding: 0 13px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  color: #fff;
+  font-size: 0.75rem;
+  font-weight: 750;
+  cursor: pointer;
+}
+.provider-button .provider-icon { width: 25px; height: 25px; border-radius: 6px; box-shadow: none; background: rgba(0,0,0,0.14); }
+.provider-button .provider-icon svg { width: 15px; height: 15px; }
+.provider-button--twitch { background: #9146ff; border-color: #a56eff; }
+.provider-button--discord { background: #5865f2; border-color: #7380ff; }
+.provider-button:hover { filter: brightness(1.08); transform: translateY(-1px); }
+.provider-dot { width: 8px; height: 8px; border-radius: 50%; background: currentColor; }
+
 .side-rail {
   display: grid;
   gap: 12px;
@@ -517,6 +595,10 @@ textarea:focus { outline: 0; border-color: rgba(124, 255, 0, 0.56); background: 
 .case-list { display: grid; gap: 12px; }
 .case-card { overflow: hidden; border: 1px solid var(--line); border-radius: 12px; background: #0b0f0d; }
 .case-card__top { display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 13px 15px; border-bottom: 1px solid var(--line); }
+.case-heading { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
+.platform-badge { padding: 3px 7px; border: 1px solid var(--line-strong); border-radius: 999px; color: var(--muted); font-size: 0.61rem; font-weight: 750; letter-spacing: 0.06em; text-transform: uppercase; }
+.platform-badge--twitch { border-color: rgba(145, 70, 255, 0.5); color: #bd98ff; background: rgba(145, 70, 255, 0.1); }
+.platform-badge--discord { border-color: rgba(88, 101, 242, 0.55); color: #aeb5ff; background: rgba(88, 101, 242, 0.12); }
 .case-id { color: var(--acid); font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.67rem; font-weight: 800; letter-spacing: 0.08em; }
 .case-card__body { display: grid; grid-template-columns: 120px 120px minmax(0, 1fr); gap: 16px; padding: 16px; }
 .case-card__body small,
@@ -539,9 +621,14 @@ textarea:focus { outline: 0; border-color: rgba(124, 255, 0, 0.56); background: 
   letter-spacing: 0.05em;
 }
 .status--submitted,
+.status--active,
+.status--appealed,
+.status--pending,
 .status--under_review { border-color: rgba(115, 216, 255, 0.35); color: var(--info); background: rgba(115,216,255,0.08); }
 .status--needs_information { border-color: rgba(255, 209, 102, 0.35); color: var(--warning); background: rgba(255,209,102,0.08); }
-.status--accepted { border-color: rgba(124, 255, 0, 0.35); color: var(--acid); background: var(--acid-soft); }
+.status--accepted,
+.status--accepted_pending_reversal,
+.status--reversed { border-color: rgba(124, 255, 0, 0.35); color: var(--acid); background: var(--acid-soft); }
 .status--denied { border-color: rgba(255, 43, 138, 0.35); color: #ff8dbd; background: var(--pink-soft); }
 
 .staff-response,
@@ -724,9 +811,11 @@ footer {
   .track-panel,
   .rules-panel { margin-top: 12px; padding: 18px; border-radius: 13px; }
   .field-row,
+  .platform-section,
   .rules-grid,
   .case-card__body,
   .side-rail { grid-template-columns: 1fr; }
+  .link-account { display: none; }
   .case-search { grid-template-columns: 1fr 1fr; }
   .case-search input { grid-column: 1 / -1; }
   .rules-cta { grid-template-columns: auto 1fr; }
