@@ -184,7 +184,7 @@ function addSignInChoice(container, platform) {
   const button = document.createElement("button");
   button.type = "button"; button.className = `provider-button provider-button--${platform}`;
   button.append(providerIcon(platform), document.createTextNode(`Continue with ${providerLabel(platform)}`));
-  button.addEventListener("click", () => startAuth(platform, appState.view === "track" ? "track" : "./"));
+  button.addEventListener("click", () => startAuth(platform, "track"));
   container.append(button);
 }
 
