@@ -340,6 +340,7 @@ async function loadMyCases(caseNumber = "") {
     const data = await api("get_my_cases", { caseNumber: String(caseNumber).trim() });
     appState.cases = data.cases || []; renderCases(appState.cases); renderDiscordCaseSelector();
     if (caseNumber && !appState.cases.length) setNotice(notice, "error", "No matching case belongs to your verified Twitch or Discord identity.");
+    else if (data.warnings?.length) setNotice(notice, "error", `${data.warnings.join(" ")} Your other connected cases are still available.`);
   } catch (error) { setNotice(notice, "error", error.message); }
 }
 
@@ -481,7 +482,9 @@ function renderCaseReview() {
     try {
       const data = await api("update_case", { id: item.id, source: item.source, status: select.value, response: response.value });
       appState.cases = appState.cases.map((entry) => entry.id === item.id ? data.case : entry); appState.selected = data.case;
-      renderStaffQueue(); renderCaseReview(); staffNotice("success", `Case #${data.case.case_number} was updated.`);
+      renderStaffQueue(); renderCaseReview();
+      if (data.delivery_failures?.length) staffNotice("error", `Case #${data.case.case_number} was updated, but Discord delivery failed for: ${data.delivery_failures.join(", ")}.`);
+      else staffNotice("success", `Case #${data.case.case_number} was updated and sent to Discord.`);
     } catch (error) { staffNotice("error", error.message); save.disabled = false; save.innerHTML = '<i data-lucide="circle-check"></i>Save and publish update'; }
   });
   root.append(form); if (window.lucide) window.lucide.createIcons();
