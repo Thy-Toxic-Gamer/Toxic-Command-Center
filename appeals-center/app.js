@@ -27,7 +27,7 @@ const STATUS_LABELS = {
   denied: "Denied", reversed: "Reversed", closed: "Closed", failed: "Action failed", archived: "Archived",
 };
 const STAFF_STATUSES = ["submitted", "under_review", "needs_information", "accepted", "denied", "closed", "archived"];
-const appState = { viewer: null, identities: { twitch: null, discord: null }, staff: null, cases: [], selected: null, filter: "all", view: "submit" };
+const appState = { viewer: null, identities: { twitch: null, discord: null }, staff: null, cases: [], selected: null, filter: "all", staffPlatform: "all", view: "submit" };
 const byId = (id) => document.getElementById(id);
 const providerLabel = (platform) => PLATFORM_LABELS[platform] || PROVIDERS[platform]?.label || platform;
 
@@ -79,7 +79,7 @@ function completeOAuthReturn() {
   const returnTo = sessionStorage.getItem(RETURN_KEY);
   sessionStorage.removeItem(RETURN_KEY);
   if (returnTo === "staff.html") {
-    sessionStorage.setItem(ACTIVE_KEY, "twitch");
+    sessionStorage.setItem(ACTIVE_KEY, platform);
     location.replace("staff.html");
     return "redirecting";
   }
@@ -370,17 +370,18 @@ async function initPortal() {
   byId("case-search").addEventListener("submit", (event) => { event.preventDefault(); loadMyCases(byId("case-number").value); });
   byId("appeal-form").addEventListener("submit", async (event) => {
     event.preventDefault();
+    const appealForm = event.currentTarget;
     const platform = selectedPlatform();
     const identityPlatform = requiredIdentityPlatform();
     if (!appState.identities[identityPlatform]) { startAuth(identityPlatform, "./", appState.viewer ? "link" : "signin"); return; }
-    const button = byId("submit-button"); const form = new FormData(event.currentTarget);
+    const button = byId("submit-button"); const form = new FormData(appealForm);
     button.disabled = true; button.textContent = "Securing appeal…"; setNotice(notice, "error", "");
     try {
       const data = await api("create_case", {
         platform, punishmentType: form.get("punishmentType"), punishmentReference: platform === "discord" ? byId("discord-case-select").value : form.get("punishmentReference"),
         reason: form.get("reason"), evidence: String(form.get("evidence") || "").split(/\r?\n/),
       });
-      event.currentTarget.reset(); byId("appeal-platform").value = platform; renderIdentityCard();
+      appealForm.reset(); byId("appeal-platform").value = platform; renderIdentityCard();
       const label = data.case.case_code || `#${data.case.case_number}`;
       byId("case-number").value = data.case.case_code || String(data.case.case_number);
       setNotice(notice, "success", `Appeal ${label} is secured and in the review queue.`);
@@ -411,13 +412,15 @@ function staffNotice(kind, message) { setNotice(byId("staff-notice"), kind, mess
 function renderStaffQueue() {
   const list = byId("queue-list"); list.replaceChildren();
   const needle = byId("staff-search").value.trim().toLowerCase();
-  const visible = appState.cases.filter((item) => !needle || String(item.case_number).includes(needle) || item.appellant_username.toLowerCase().includes(needle));
+  const platformCases = appState.cases.filter((item) => appState.staffPlatform === "all" || item.platform === appState.staffPlatform);
+  byId("active-count").textContent = String(platformCases.filter((item) => OPEN_STATUSES.has(item.status)).length);
+  const visible = platformCases.filter((item) => !needle || String(item.case_number).includes(needle) || item.appellant_username.toLowerCase().includes(needle));
   if (!visible.length) { const empty = document.createElement("div"); empty.className = "empty-queue"; empty.textContent = "No cases match this view."; list.append(empty); return; }
   for (const item of visible) {
     const button = document.createElement("button"); button.type = "button"; button.className = `queue-item${appState.selected?.id === item.id ? " active" : ""}`;
     const signal = document.createElement("span"); signal.className = `queue-signal queue-signal--${item.status}`;
     const detail = document.createElement("span");
-    const title = document.createElement("strong"); title.textContent = `#${item.case_number} · ${item.appellant_display_name || item.appellant_username}`;
+    const title = document.createElement("strong"); title.textContent = `${item.case_code || `#${item.case_number}`} · ${item.appellant_display_name || item.appellant_username}`;
     const meta = document.createElement("small"); meta.textContent = `${providerLabel(item.platform)} • ${item.punishment_type} • ${new Date(item.submitted_at).toLocaleDateString()}`;
     detail.append(title, meta);
     const status = document.createElement("em"); status.textContent = STATUS_LABELS[item.status] || item.status;
@@ -434,7 +437,7 @@ function renderCaseReview() {
   const root = byId("case-review"); root.replaceChildren(); const item = appState.selected;
   if (!item) { root.innerHTML = '<div class="empty-review"><i data-lucide="user-round"></i><h2>Select a case</h2><p>Choose an appeal from the queue to review its full record.</p></div>'; if (window.lucide) window.lucide.createIcons(); return; }
   const header = document.createElement("header"); const heading = document.createElement("div");
-  const caseId = document.createElement("span"); caseId.className = "case-id"; caseId.textContent = `CASE #${item.case_number}`;
+  const caseId = document.createElement("span"); caseId.className = "case-id"; caseId.textContent = item.case_code || `CASE #${item.case_number}`;
   const name = document.createElement("h2"); name.textContent = item.appellant_display_name || item.appellant_username;
   const login = document.createElement("p"); login.textContent = `@${item.appellant_username} on ${providerLabel(item.platform)}`; heading.append(caseId, name, login);
   const badge = document.createElement("span"); badge.className = `status status--${item.status}`; badge.textContent = STATUS_LABELS[item.status] || item.status; header.append(heading, badge);
@@ -464,7 +467,7 @@ function renderCaseReview() {
       if (!window.confirm(`Permanently delete case #${item.case_number} and its complete event history? This cannot be undone.`)) return;
       remove.disabled = true; save.disabled = true; remove.textContent = "Deleting…"; staffNotice("error", "");
       try {
-        const data = await api("delete_case", { id: item.id }, { platform: "twitch" });
+        const data = await api("delete_case", { id: item.id, source: item.source });
         appState.cases = appState.cases.filter((entry) => entry.id !== item.id); appState.selected = null;
         byId("active-count").textContent = String(appState.cases.filter((entry) => OPEN_STATUSES.has(entry.status)).length);
         renderStaffQueue(); renderCaseReview(); staffNotice("success", `Case #${data.case.case_number} was permanently deleted.`);
@@ -476,7 +479,7 @@ function renderCaseReview() {
   form.addEventListener("submit", async (event) => {
     event.preventDefault(); save.disabled = true; save.textContent = "Saving…"; staffNotice("error", "");
     try {
-      const data = await api("update_case", { id: item.id, status: select.value, response: response.value }, { platform: "twitch" });
+      const data = await api("update_case", { id: item.id, source: item.source, status: select.value, response: response.value });
       appState.cases = appState.cases.map((entry) => entry.id === item.id ? data.case : entry); appState.selected = data.case;
       renderStaffQueue(); renderCaseReview(); staffNotice("success", `Case #${data.case.case_number} was updated.`);
     } catch (error) { staffNotice("error", error.message); save.disabled = false; save.innerHTML = '<i data-lucide="circle-check"></i>Save and publish update'; }
@@ -487,7 +490,7 @@ function renderCaseReview() {
 async function loadStaffCases(status = appState.filter) {
   const list = byId("queue-list"); list.innerHTML = '<div class="loading-row">Loading cases…</div>'; staffNotice("error", "");
   try {
-    const data = await api("get_staff_cases", { status }, { platform: "twitch" }); appState.cases = data.cases || []; appState.filter = status;
+    const data = await api("get_staff_cases", { status }); appState.cases = data.cases || []; appState.filter = status;
     byId("active-count").textContent = String(appState.cases.filter((item) => OPEN_STATUSES.has(item.status)).length);
     if (appState.selected) appState.selected = appState.cases.find((item) => item.id === appState.selected.id) || null;
     renderStaffQueue(); renderCaseReview();
@@ -495,24 +498,38 @@ async function loadStaffCases(status = appState.filter) {
 }
 
 async function initStaff() {
-  sessionStorage.setItem(ACTIVE_KEY, "twitch");
-  byId("staff-signin").addEventListener("click", () => startAuth("twitch", "staff.html"));
-  byId("staff-switch").addEventListener("click", () => switchTwitchAccount("staff.html"));
+  byId("staff-signin-twitch").addEventListener("click", () => startAuth("twitch", "staff.html"));
+  byId("staff-signin-discord").addEventListener("click", () => startAuth("discord", "staff.html"));
   byId("staff-logout").addEventListener("click", signOut);
   byId("staff-search").addEventListener("input", renderStaffQueue);
+  byId("platform-filter-row").addEventListener("click", (event) => {
+    const button = event.target.closest("button[data-platform]"); if (!button) return;
+    appState.staffPlatform = button.dataset.platform;
+    document.querySelectorAll("#platform-filter-row button").forEach((item) => item.classList.toggle("active", item === button));
+    appState.selected = null; renderStaffQueue(); renderCaseReview();
+  });
   byId("filter-row").addEventListener("click", (event) => {
     const button = event.target.closest("button[data-status]"); if (!button) return;
     document.querySelectorAll("#filter-row button").forEach((item) => item.classList.toggle("active", item === button)); loadStaffCases(button.dataset.status);
   });
-  if (!sessionStorage.getItem(PROVIDERS.twitch.tokenKey)) { byId("staff-signin").hidden = false; staffNotice("error", "Sign in with your authorized Twitch account to open the staff queue."); return; }
+  const provider = activeProvider();
+  byId("staff-switch").addEventListener("click", () => {
+    sessionStorage.removeItem(PROVIDERS[provider].tokenKey);
+    startAuth(provider, "staff.html");
+  });
+  if (!sessionStorage.getItem(PROVIDERS[provider].tokenKey)) {
+    byId("staff-signin-twitch").hidden = false; byId("staff-signin-discord").hidden = false;
+    staffNotice("error", "Sign in with an authorized Twitch or Discord account to open the combined queue."); return;
+  }
   try {
-    const data = await api("me", {}, { platform: "twitch" }); appState.viewer = data.user; appState.staff = data.staff;
-    if (!appState.staff) throw Object.assign(new Error("This Twitch account does not have staff access."), { status: 403 });
+    const data = await api("me", {}, { platform: provider }); appState.viewer = data.user; appState.staff = data.staff;
+    if (!appState.staff) throw Object.assign(new Error(`This ${providerLabel(provider)} account does not have staff access.`), { status: 403 });
     byId("staff-role").innerHTML = `<i data-lucide="shield-check"></i>${appState.staff.role}`;
+    byId("staff-switch").textContent = `Switch ${providerLabel(provider)} account`;
     byId("staff-switch").hidden = false; byId("staff-logout").hidden = false; byId("staff-workspace").hidden = false; await loadStaffCases("all");
   } catch (error) {
-    staffNotice("error", error.status === 403 ? "This Twitch account does not have staff access. Switch to an authorized Twitch account." : error.message);
-    byId("staff-signin").textContent = error.status === 403 ? "Use another Twitch account" : "Sign in with Twitch"; byId("staff-signin").hidden = false;
+    staffNotice("error", error.status === 403 ? `This ${providerLabel(provider)} account does not have staff access.` : error.message);
+    byId("staff-signin-twitch").hidden = false; byId("staff-signin-discord").hidden = false;
   }
   if (window.lucide) window.lucide.createIcons();
 }
