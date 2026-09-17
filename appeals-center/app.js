@@ -174,10 +174,50 @@ function renderIdentityCard() {
     byId("submit-button").innerHTML = 'Verify identity and continue <i data-lucide="arrow-right"></i>';
   }
   const reference = byId("punishment-reference");
-  reference.required = platform === "discord";
-  reference.placeholder = platform === "discord" ? "TTG-MOD-000006" : "Date, message, or case note";
-  byId("reference-optional").textContent = platform === "discord" ? "required" : "optional";
+  const discordCases = byId("discord-case-select");
+  reference.hidden = platform === "discord";
+  reference.required = false;
+  reference.placeholder = "Date, message, or case note";
+  discordCases.hidden = platform !== "discord";
+  discordCases.required = platform === "discord";
+  byId("reference-optional").textContent = platform === "discord" ? "eligible tickets" : "optional";
+  if (platform === "discord") renderDiscordCaseSelector(discordCases.value);
   if (window.lucide) window.lucide.createIcons();
+}
+
+function eligibleDiscordCases() {
+  return appState.cases.filter((item) => item.source === "discord_moderation" && item.can_appeal);
+}
+
+function setActionFromDiscordCase(caseCode) {
+  const item = eligibleDiscordCases().find((entry) => entry.case_code === caseCode);
+  if (!item) return;
+  const punishment = byId("appeal-form").elements.namedItem("punishmentType");
+  const action = item.punishment_type === "warn" ? "warning" : item.punishment_type === "kick" ? "other" : item.punishment_type;
+  if ([...punishment.options].some((option) => option.value === action)) punishment.value = action;
+}
+
+function renderDiscordCaseSelector(selectedCaseCode = "") {
+  const select = byId("discord-case-select");
+  if (!select) return;
+  const previous = selectedCaseCode || select.value;
+  select.replaceChildren();
+  const placeholder = document.createElement("option");
+  placeholder.value = ""; placeholder.textContent = "Select an eligible ticket"; placeholder.disabled = true;
+  select.append(placeholder);
+  for (const item of eligibleDiscordCases()) {
+    const option = document.createElement("option");
+    option.value = item.case_code;
+    option.textContent = `${item.case_code} · ${String(item.punishment_type).replaceAll("_", " ")} · ${new Date(item.created_at).toLocaleDateString()}`;
+    select.append(option);
+  }
+  const eligible = eligibleDiscordCases();
+  if (eligible.some((item) => item.case_code === previous)) select.value = previous;
+  else if (eligible.length === 1) select.value = eligible[0].case_code;
+  else select.value = "";
+  placeholder.selected = !select.value;
+  placeholder.textContent = eligible.length ? "Select an eligible ticket" : "No eligible Discord tickets found";
+  setActionFromDiscordCase(select.value);
 }
 
 function addSignInChoice(container, platform) {
@@ -242,12 +282,12 @@ function setPortalView(view) {
 
 function prepareDiscordAppeal(item) {
   const form = byId("appeal-form");
-  const punishment = form.elements.namedItem("punishmentType");
-  const action = item.punishment_type === "warn" ? "warning" : item.punishment_type === "kick" ? "other" : item.punishment_type;
   byId("appeal-platform").value = "discord";
   sessionStorage.setItem(SELECTED_PLATFORM_KEY, "discord");
-  if ([...punishment.options].some((option) => option.value === action)) punishment.value = action;
-  byId("punishment-reference").value = item.case_code || `TTG-MOD-${String(item.case_number).padStart(6, "0")}`;
+  const caseCode = item.case_code || `TTG-MOD-${String(item.case_number).padStart(6, "0")}`;
+  renderDiscordCaseSelector(caseCode);
+  byId("discord-case-select").value = caseCode;
+  setActionFromDiscordCase(caseCode);
   setNotice(byId("notice"), "error", "");
   setPortalView("submit");
   renderIdentityCard();
@@ -298,7 +338,7 @@ async function loadMyCases(caseNumber = "") {
   const notice = byId("notice"); setNotice(notice, "error", "");
   try {
     const data = await api("get_my_cases", { caseNumber: String(caseNumber).trim() });
-    appState.cases = data.cases || []; renderCases(appState.cases);
+    appState.cases = data.cases || []; renderCases(appState.cases); renderDiscordCaseSelector();
     if (caseNumber && !appState.cases.length) setNotice(notice, "error", "No matching case belongs to your verified Twitch or Discord identity.");
   } catch (error) { setNotice(notice, "error", error.message); }
 }
@@ -320,6 +360,7 @@ async function initPortal() {
     sessionStorage.setItem(SELECTED_PLATFORM_KEY, selectedPlatform());
     renderIdentityCard();
   });
+  byId("discord-case-select").addEventListener("change", (event) => setActionFromDiscordCase(event.currentTarget.value));
   byId("identity-card").addEventListener("click", () => {
     const identityPlatform = requiredIdentityPlatform();
     if (!appState.identities[identityPlatform]) startAuth(identityPlatform, "./", appState.viewer ? "link" : "signin");
@@ -336,7 +377,7 @@ async function initPortal() {
     button.disabled = true; button.textContent = "Securing appeal…"; setNotice(notice, "error", "");
     try {
       const data = await api("create_case", {
-        platform, punishmentType: form.get("punishmentType"), punishmentReference: form.get("punishmentReference"),
+        platform, punishmentType: form.get("punishmentType"), punishmentReference: platform === "discord" ? byId("discord-case-select").value : form.get("punishmentReference"),
         reason: form.get("reason"), evidence: String(form.get("evidence") || "").split(/\r?\n/),
       });
       event.currentTarget.reset(); byId("appeal-platform").value = platform; renderIdentityCard();
