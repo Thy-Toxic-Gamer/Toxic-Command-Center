@@ -12,6 +12,7 @@ const OAUTH_STATE_KEY = "thy_toxic_appeals_oauth_state";
 const OAUTH_PROVIDER_KEY = "thy_toxic_appeals_oauth_provider";
 const OAUTH_PURPOSE_KEY = "thy_toxic_appeals_oauth_purpose";
 const RETURN_KEY = "thy_toxic_appeals_return";
+const AFTER_AUTH_VIEW_KEY = "thy_toxic_appeals_after_auth_view";
 const LINK_PENDING_KEY = "thy_toxic_appeals_link_pending";
 const OPEN_STATUSES = new Set(["submitted", "active", "appealed", "under_review", "needs_information", "accepted_pending_reversal"]);
 const STATUS_LABELS = {
@@ -21,7 +22,7 @@ const STATUS_LABELS = {
   denied: "Denied", reversed: "Reversed", closed: "Closed", failed: "Action failed", archived: "Archived",
 };
 const STAFF_STATUSES = ["submitted", "under_review", "needs_information", "accepted", "denied", "closed", "archived"];
-const appState = { viewer: null, identities: { twitch: null, discord: null }, staff: null, cases: [], selected: null, filter: "all" };
+const appState = { viewer: null, identities: { twitch: null, discord: null }, staff: null, cases: [], selected: null, filter: "all", view: "submit" };
 const byId = (id) => document.getElementById(id);
 const providerLabel = (platform) => PROVIDERS[platform]?.label || platform;
 
@@ -43,7 +44,8 @@ function startAuth(platform, returnTo = "./", purpose = "signin") {
   sessionStorage.setItem(OAUTH_STATE_KEY, state);
   sessionStorage.setItem(OAUTH_PROVIDER_KEY, platform);
   sessionStorage.setItem(OAUTH_PURPOSE_KEY, purpose);
-  sessionStorage.setItem(RETURN_KEY, returnTo === "staff.html" ? "staff.html" : "./");
+  const safeReturn = returnTo === "staff.html" ? "staff.html" : returnTo === "track" ? "track" : "./";
+  sessionStorage.setItem(RETURN_KEY, safeReturn);
   const common = { response_type: "token", client_id: PROVIDERS[platform].clientId, redirect_uri: REDIRECT_URI, state };
   const query = new URLSearchParams(platform === "twitch"
     ? { ...common, scope: "user:read:email", force_verify: "true" }
@@ -76,12 +78,13 @@ function completeOAuthReturn() {
     location.replace("staff.html");
     return "redirecting";
   }
+  if (returnTo === "track") sessionStorage.setItem(AFTER_AUTH_VIEW_KEY, "track");
   return true;
 }
 
 function signOut(destination = null) {
   Object.values(PROVIDERS).forEach((provider) => sessionStorage.removeItem(provider.tokenKey));
-  [ACTIVE_KEY, LINK_PENDING_KEY].forEach((key) => sessionStorage.removeItem(key));
+  [ACTIVE_KEY, LINK_PENDING_KEY, AFTER_AUTH_VIEW_KEY].forEach((key) => sessionStorage.removeItem(key));
   const next = typeof destination === "string" ? destination : document.body.dataset.page === "staff" ? "staff.html" : "./";
   location.replace(next);
 }
@@ -167,7 +170,7 @@ function addSignInChoice(container, platform) {
   const button = document.createElement("button");
   button.type = "button"; button.className = `provider-button provider-button--${platform}`;
   button.append(providerIcon(platform), document.createTextNode(`Continue with ${providerLabel(platform)}`));
-  button.addEventListener("click", () => startAuth(platform));
+  button.addEventListener("click", () => startAuth(platform, appState.view === "track" ? "track" : "./"));
   container.append(button);
 }
 
@@ -194,7 +197,7 @@ function renderPortalAccount() {
   const other = appState.viewer.platform === "twitch" ? "discord" : "twitch";
   if (!appState.identities[other]) {
     const link = document.createElement("button"); link.type = "button"; link.className = "link-account"; link.textContent = `Link ${providerLabel(other)}`;
-    link.addEventListener("click", () => startAuth(other, "./", "link")); slot.append(link);
+    link.addEventListener("click", () => startAuth(other, appState.view === "track" ? "track" : "./", "link")); slot.append(link);
   }
   const logout = document.createElement("button"); logout.type = "button"; logout.className = "icon-button"; logout.setAttribute("aria-label", "Sign out");
   logout.innerHTML = '<i data-lucide="log-out"></i>'; logout.addEventListener("click", signOut); slot.append(logout);
@@ -215,6 +218,7 @@ async function finishPendingLink() {
 function setPortalView(view) {
   const allowed = new Set(["submit", "track", "rules"]);
   const selected = allowed.has(view) ? view : "submit";
+  appState.view = selected;
   for (const name of allowed) byId(`view-${name}`).hidden = name !== selected;
   document.querySelectorAll("[data-view]").forEach((button) => {
     if (button.closest("nav")) button.classList.toggle("nav-active", button.dataset.view === selected);
@@ -276,7 +280,7 @@ async function initPortal() {
     const platform = selectedPlatform();
     if (!appState.identities[platform]) startAuth(platform, "./", appState.viewer ? "link" : "signin");
   });
-  document.querySelectorAll("[data-provider-signin]").forEach((button) => button.addEventListener("click", () => startAuth(button.dataset.providerSignin)));
+  document.querySelectorAll("[data-provider-signin]").forEach((button) => button.addEventListener("click", () => startAuth(button.dataset.providerSignin, "track")));
   byId("all-cases").addEventListener("click", () => { byId("case-number").value = ""; loadMyCases(""); });
   byId("case-search").addEventListener("submit", (event) => { event.preventDefault(); loadMyCases(byId("case-number").value); });
   byId("appeal-form").addEventListener("submit", async (event) => {
@@ -306,7 +310,8 @@ async function initPortal() {
   }
   renderPortalAccount();
   if (appState.viewer) loadMyCases("");
-  const requestedView = new URLSearchParams(location.search).get("view");
+  const requestedView = sessionStorage.getItem(AFTER_AUTH_VIEW_KEY) || new URLSearchParams(location.search).get("view");
+  sessionStorage.removeItem(AFTER_AUTH_VIEW_KEY);
   if (requestedView) setPortalView(requestedView);
 }
 
