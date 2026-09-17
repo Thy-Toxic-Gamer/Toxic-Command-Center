@@ -334,7 +334,9 @@ function renderCases(cases) {
       const response = document.createElement("div"); response.className = "staff-response";
       response.innerHTML = '<i data-lucide="shield-check"></i><div><small>Staff response</small></div>';
       const text = document.createElement("p"); text.textContent = item.staff_response; response.lastElementChild.append(text); article.append(response);
-    } else if (!item.can_appeal) {
+    } else if (String(item.punishment_type).toLowerCase() === "kick") {
+      const resolved = document.createElement("div"); resolved.className = "pending-line"; resolved.innerHTML = "<span></span>Kick recorded — you may rejoin the Discord server"; article.append(resolved);
+    } else if (!item.can_appeal && OPEN_STATUSES.has(item.status)) {
       const pending = document.createElement("div"); pending.className = "pending-line"; pending.innerHTML = "<span></span>Awaiting staff update"; article.append(pending);
     }
     if (item.can_appeal) {
