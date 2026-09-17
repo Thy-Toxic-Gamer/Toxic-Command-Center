@@ -6,7 +6,7 @@
   <meta name="description" content="Submit and track a community moderation appeal for ThyToxicGamer.">
   <meta name="theme-color" content="#050807">
   <meta name="referrer" content="no-referrer">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://unpkg.com; style-src 'self' 'unsafe-inline'; img-src 'self' https://static-cdn.jtvnw.net data:; connect-src https://ubldjtsjfudogtgxakiq.supabase.co; base-uri 'self'; frame-ancestors 'none'">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://unpkg.com; style-src 'self' 'unsafe-inline'; img-src 'self' https://static-cdn.jtvnw.net https://cdn.discordapp.com data:; connect-src https://ubldjtsjfudogtgxakiq.supabase.co; base-uri 'self'; frame-ancestors 'none'">
   <title>Appeals Center | ThyToxicGamer</title>
   <link rel="icon" href="favicon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="styles.css">
@@ -41,11 +41,15 @@
   <section class="workspace" aria-live="polite">
     <div id="notice" hidden></div>
 
-    <div id="view-submit" class="panel-grid">
+    <div id="view-submit" class="panel-grid" aria-labelledby="submit-appeal">
       <form class="appeal-form" id="appeal-form">
-        <div class="panel-heading"><span>01</span><div><h2>Tell us what happened</h2><p>Be honest, specific, and concise. Staff can already see the moderation record.</p></div></div>
-        <button class="identity-card" id="identity-card" type="button"><span class="twitch-icon"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M4 2 1 5v15h5v3l3-3h4l7-7V2H4Zm14 10-4 4h-4l-3 3v-3H3V4h15v8Zm-3-6h-2v6h2V6Zm-5 0H8v6h2V6Z"></path></svg></span><span><strong id="identity-title">Verify your Twitch account</strong><small id="identity-copy">Your identity is attached securely to this appeal.</small></span><i data-lucide="arrow-right"></i></button>
-        <div class="field-row"><label><span>Action being appealed</span><select name="punishmentType" required><option value="" disabled selected>Select one</option><option value="ban">Ban</option><option value="timeout">Timeout</option><option value="mute">Mute</option><option value="warning">Warning</option><option value="other">Other action</option></select></label><label><span>Reference <small>optional</small></span><input name="punishmentReference" maxlength="250" placeholder="Date, message, or case note"></label></div>
+        <div class="panel-heading"><span>01</span><div><h2 id="submit-appeal">Tell us what happened</h2><p>Choose the platform where the action occurred, then verify the matching account.</p></div></div>
+        <div class="platform-section">
+          <label for="appeal-platform"><span>Platform</span><select id="appeal-platform" name="platform" required><option value="twitch">Twitch</option><option value="discord">Discord</option></select></label>
+          <p><i data-lucide="shield-check"></i> We only show cases belonging to a verified account. Linked Twitch and Discord cases load together.</p>
+        </div>
+        <button class="identity-card" id="identity-card" type="button"><span id="identity-icon"></span><span><strong id="identity-title">Verify your Twitch account</strong><small id="identity-copy">Your verified platform identity will be attached securely to this appeal.</small></span><i data-lucide="arrow-right"></i></button>
+        <div class="field-row"><label><span>Action being appealed</span><select name="punishmentType" required><option value="" disabled selected>Select one</option><option value="ban">Ban</option><option value="timeout">Timeout</option><option value="mute">Mute</option><option value="warning">Warning</option><option value="other">Other action</option></select></label><label><span>Reference <small id="reference-optional">optional</small></span><input id="punishment-reference" name="punishmentReference" maxlength="250" placeholder="Date, message, or case note"></label></div>
         <label><span>Why should this action be reviewed?</span><textarea name="reason" minlength="20" maxlength="5000" required rows="8" placeholder="Explain what happened, what staff may have missed, and why you believe the action should change…"></textarea><small class="field-hint">20–5,000 characters. One clear explanation is stronger than repeated messages.</small></label>
         <label><span>Evidence links <small>optional, one per line</small></span><textarea name="evidence" rows="3" placeholder="https://clips.twitch.tv/...&#10;https://imgur.com/..."></textarea><small class="field-hint">Up to five public links. Do not include private information.</small></label>
         <button class="submit-button button" id="submit-button" type="submit">Sign in and continue <i data-lucide="arrow-right"></i></button>
@@ -54,9 +58,9 @@
     </div>
 
     <div id="view-track" class="track-panel" hidden>
-      <div class="panel-heading"><span>02</span><div><h2>Case status</h2><p>Sign in with the same Twitch account used to submit the appeal.</p></div></div>
-      <div id="track-guest" class="empty-state"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M4 2 1 5v15h5v3l3-3h4l7-7V2H4Zm14 10-4 4h-4l-3 3v-3H3V4h15v8Zm-3-6h-2v6h2V6Zm-5 0H8v6h2V6Z"></path></svg><h3>Verify your Twitch identity</h3><p>Your case history is only visible to you and authorized staff.</p><button class="twitch-button" id="track-signin" type="button">Continue with Twitch</button></div>
-      <div id="track-auth" hidden><form class="case-search" id="case-search"><input id="case-number" placeholder="Case number, e.g. 1042" inputmode="numeric"><button class="button" type="submit"><i data-lucide="file-search"></i> Find case</button><button class="button button--outline" id="all-cases" type="button">All my cases</button></form><div class="case-list" id="case-list"></div><div class="empty-state empty-state--compact" id="case-empty"><i data-lucide="file-search"></i><h3>No cases loaded</h3><p>Enter a case number or choose “All my cases.”</p></div></div>
+      <div class="panel-heading"><span>02</span><div><h2>Case status</h2><p>Sign in with the platform connected to your moderation case. Linked accounts load together automatically.</p></div></div>
+      <div id="track-guest" class="empty-state"><i data-lucide="scan-face"></i><h3>Verify your identity</h3><p>Your case history is only visible to you and authorized staff.</p><div class="provider-actions"><button class="provider-button provider-button--twitch" data-provider-signin="twitch" type="button"><span class="provider-dot"></span>Continue with Twitch</button><button class="provider-button provider-button--discord" data-provider-signin="discord" type="button"><span class="provider-dot"></span>Continue with Discord</button></div></div>
+      <div id="track-auth" hidden><form class="case-search" id="case-search"><input id="case-number" placeholder="Case number, e.g. 1042 or TTG-MOD-000006"><button class="button" type="submit"><i data-lucide="file-search"></i> Find case</button><button class="button button--outline" id="all-cases" type="button">All my cases</button></form><div class="case-list" id="case-list"></div><div class="empty-state empty-state--compact" id="case-empty"><i data-lucide="file-search"></i><h3>No cases loaded</h3><p>Enter a case number or choose “All my cases.”</p></div></div>
     </div>
 
     <div id="view-rules" class="rules-panel" hidden>
