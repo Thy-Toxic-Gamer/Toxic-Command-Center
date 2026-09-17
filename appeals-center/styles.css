@@ -645,6 +645,18 @@ textarea:focus { outline: 0; border-color: rgba(124, 255, 0, 0.56); background: 
 .staff-response p { margin: 0; font-size: 0.77rem; line-height: 1.55; white-space: pre-wrap; }
 .pending-line { align-items: center; color: var(--muted); font-size: 0.7rem; }
 .pending-line span { width: 7px; height: 7px; border-radius: 50%; background: var(--warning); box-shadow: 0 0 10px rgba(255,209,102,0.5); }
+.case-card__appeal {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 13px 16px;
+  border-top: 1px solid var(--line);
+  color: var(--muted);
+  background: linear-gradient(90deg, rgba(124, 255, 0, 0.06), rgba(255, 43, 138, 0.035));
+  font-size: 0.72rem;
+}
+.case-card__appeal .button { flex: 0 0 auto; }
 
 .empty-state,
 .empty-review {
@@ -818,6 +830,8 @@ footer {
   .link-account { display: none; }
   .case-search { grid-template-columns: 1fr 1fr; }
   .case-search input { grid-column: 1 / -1; }
+  .case-card__appeal { align-items: stretch; flex-direction: column; }
+  .case-card__appeal .button { justify-content: center; width: 100%; }
   .rules-cta { grid-template-columns: auto 1fr; }
   .rules-cta button { grid-column: 1 / -1; }
   footer { align-items: flex-start; flex-direction: column; padding: 18px 14px; }
