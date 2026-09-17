@@ -7,6 +7,10 @@ const PROVIDERS = {
   twitch: { label: "Twitch", clientId: "ht2kbpz12tpv060f2259jn9recng0x", tokenKey: "thy_toxic_appeals_twitch_token" },
   discord: { label: "Discord", clientId: "1544711402873290873", tokenKey: "thy_toxic_appeals_discord_token" },
 };
+const PLATFORM_LABELS = {
+  twitch: "Twitch", youtube: "YouTube", kick: "Kick", discord: "Discord",
+  tiktok: "TikTok", instagram: "Instagram", x_twitter: "X / Twitter",
+};
 const ACTIVE_KEY = "thy_toxic_appeals_active_provider";
 const OAUTH_STATE_KEY = "thy_toxic_appeals_oauth_state";
 const OAUTH_PROVIDER_KEY = "thy_toxic_appeals_oauth_provider";
@@ -24,7 +28,7 @@ const STATUS_LABELS = {
 const STAFF_STATUSES = ["submitted", "under_review", "needs_information", "accepted", "denied", "closed", "archived"];
 const appState = { viewer: null, identities: { twitch: null, discord: null }, staff: null, cases: [], selected: null, filter: "all", view: "submit" };
 const byId = (id) => document.getElementById(id);
-const providerLabel = (platform) => PROVIDERS[platform]?.label || platform;
+const providerLabel = (platform) => PLATFORM_LABELS[platform] || PROVIDERS[platform]?.label || platform;
 
 function randomState() {
   const bytes = new Uint8Array(32);
@@ -141,23 +145,32 @@ function providerIcon(platform) {
 
 function selectedPlatform() { return byId("appeal-platform")?.value || appState.viewer?.platform || "twitch"; }
 
+function requiredIdentityPlatform() {
+  const platform = selectedPlatform();
+  if (platform === "twitch" || platform === "discord") return platform;
+  return appState.viewer?.platform || activeProvider();
+}
+
 function renderIdentityCard() {
   const platform = selectedPlatform();
-  const identity = appState.identities[platform];
+  const identityPlatform = requiredIdentityPlatform();
+  const identity = appState.identities[identityPlatform];
   const iconSlot = byId("identity-icon");
   if (!iconSlot) return;
-  iconSlot.replaceChildren(providerIcon(platform));
+  iconSlot.replaceChildren(providerIcon(identityPlatform));
   byId("identity-card").classList.toggle("identity-card--verified", Boolean(identity));
   if (identity) {
     byId("identity-title").textContent = `Verified as ${identity.displayName || identity.login}`;
-    byId("identity-copy").textContent = `${providerLabel(platform)} ID ${identity.id} · This verified identity will be attached to your appeal.`;
+    byId("identity-copy").textContent = `${providerLabel(identityPlatform)} verifies your identity · Appeal platform: ${providerLabel(platform)}.`;
     byId("submit-button").innerHTML = 'Submit appeal <i data-lucide="arrow-right"></i>';
   } else {
-    byId("identity-title").textContent = `Verify your ${providerLabel(platform)} account`;
+    byId("identity-title").textContent = appState.viewer
+      ? `Link your ${providerLabel(identityPlatform)} account`
+      : "Verify your identity";
     byId("identity-copy").textContent = appState.viewer
-      ? `Securely link ${providerLabel(platform)} before accessing its cases.`
-      : "Your verified platform identity will be attached securely to this appeal.";
-    byId("submit-button").innerHTML = `Verify ${providerLabel(platform)} and continue <i data-lucide="arrow-right"></i>`;
+      ? `${providerLabel(identityPlatform)} verification is required for a ${providerLabel(platform)} appeal.`
+      : "Sign in securely with Twitch or Discord. This is separate from where the action happened.";
+    byId("submit-button").innerHTML = 'Verify identity and continue <i data-lucide="arrow-right"></i>';
   }
   const reference = byId("punishment-reference");
   reference.required = platform === "discord";
@@ -268,10 +281,6 @@ async function loadViewer() {
   const data = await api("me");
   appState.viewer = data.user; appState.staff = data.staff || null;
   appState.identities = data.identities || { twitch: null, discord: null };
-  const platformSelect = byId("appeal-platform");
-  if (platformSelect && appState.viewer?.platform && !appState.identities[platformSelect.value]) {
-    platformSelect.value = appState.viewer.platform;
-  }
 }
 
 async function initPortal() {
@@ -281,8 +290,8 @@ async function initPortal() {
   document.querySelectorAll("[data-view]").forEach((button) => button.addEventListener("click", () => setPortalView(button.dataset.view)));
   byId("appeal-platform").addEventListener("change", renderIdentityCard);
   byId("identity-card").addEventListener("click", () => {
-    const platform = selectedPlatform();
-    if (!appState.identities[platform]) startAuth(platform, "./", appState.viewer ? "link" : "signin");
+    const identityPlatform = requiredIdentityPlatform();
+    if (!appState.identities[identityPlatform]) startAuth(identityPlatform, "./", appState.viewer ? "link" : "signin");
   });
   document.querySelectorAll("[data-provider-signin]").forEach((button) => button.addEventListener("click", () => startAuth(button.dataset.providerSignin, "track")));
   byId("all-cases").addEventListener("click", () => { byId("case-number").value = ""; loadMyCases(""); });
@@ -290,7 +299,8 @@ async function initPortal() {
   byId("appeal-form").addEventListener("submit", async (event) => {
     event.preventDefault();
     const platform = selectedPlatform();
-    if (!appState.identities[platform]) { startAuth(platform, "./", appState.viewer ? "link" : "signin"); return; }
+    const identityPlatform = requiredIdentityPlatform();
+    if (!appState.identities[identityPlatform]) { startAuth(identityPlatform, "./", appState.viewer ? "link" : "signin"); return; }
     const button = byId("submit-button"); const form = new FormData(event.currentTarget);
     button.disabled = true; button.textContent = "Securing appeal…"; setNotice(notice, "error", "");
     try {
