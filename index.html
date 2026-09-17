@@ -318,8 +318,39 @@
   }
   #toxic-command-center-concept .tcc-command-tools {
     display: flex;
-    justify-content: flex-end;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 12px;
     margin: 14px 0 18px;
+  }
+  #toxic-command-center-concept .tcc-platform-filters {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  #toxic-command-center-concept .tcc-platform-filter {
+    min-height: 42px;
+    padding: 0 15px;
+    border: 1px solid var(--toxic-line);
+    border-radius: 9px;
+    color: var(--toxic-muted);
+    background: var(--toxic-panel);
+    font: inherit;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: color .2s ease, border-color .2s ease, background .2s ease, box-shadow .2s ease;
+  }
+  #toxic-command-center-concept .tcc-platform-filter:hover {
+    color: var(--toxic-text);
+    border-color: rgba(124,255,0,.42);
+  }
+  #toxic-command-center-concept .tcc-platform-filter.is-active {
+    color: var(--toxic-green);
+    border-color: rgba(124,255,0,.62);
+    background: rgba(124,255,0,.1);
+    box-shadow: inset 0 -2px 0 var(--toxic-green), 0 0 18px rgba(124,255,0,.08);
   }
 
   #toxic-command-center-concept .tcc-list { display: grid; gap: 9px; }
@@ -516,7 +547,16 @@
 
     <section id="tcc-commands" role="tabpanel" hidden>
       <div class="tcc-section-banner tcc-banner-commands"><div class="tcc-banner-copy"><span class="tcc-section-icon"><i data-lucide="terminal" aria-hidden="true"></i></span><h2>Command Directory</h2><p>Search the commands available across The Toxic Zone.</p></div></div>
-      <div class="tcc-command-tools"><input class="tcc-search" id="tcc-command-search" type="search" placeholder="Search commands, platforms, systems, or access" aria-label="Search commands, platforms, systems, or access level"></div>
+      <div class="tcc-command-tools">
+        <div class="tcc-platform-filters" aria-label="Filter commands by platform">
+          <button class="tcc-platform-filter is-active" type="button" data-command-platform="all" aria-pressed="true">All</button>
+          <button class="tcc-platform-filter" type="button" data-command-platform="discord" aria-pressed="false">Discord</button>
+          <button class="tcc-platform-filter" type="button" data-command-platform="twitch" aria-pressed="false">Twitch</button>
+          <button class="tcc-platform-filter" type="button" data-command-platform="youtube" aria-pressed="false">YouTube</button>
+          <button class="tcc-platform-filter" type="button" data-command-platform="kick" aria-pressed="false">Kick</button>
+        </div>
+        <input class="tcc-search" id="tcc-command-search" type="search" placeholder="Search commands, systems, or access" aria-label="Search commands, systems, or access level">
+      </div>
       <div class="tcc-permission-key" aria-label="Permission color key"><span class="tcc-access tcc-access-everyone">Everyone</span><span class="tcc-access tcc-access-mod">Moderator</span><span class="tcc-access tcc-access-admin">Admin</span><span class="tcc-access tcc-access-owner">Owner</span></div>
       <div class="tcc-list" id="tcc-command-list">
         <div class="tcc-command-header" aria-hidden="true"><span>Command</span><span>Description</span><span>Platforms</span><span>System</span><span>Access</span></div>
@@ -595,12 +635,33 @@
     root.querySelectorAll('[data-open]').forEach((button) => button.addEventListener('click', () => openPanel(button.dataset.open)));
 
     const search = root.querySelector('#tcc-command-search');
-    search.addEventListener('input', () => {
+    const platformFilters = [...root.querySelectorAll('[data-command-platform]')];
+    let activePlatform = 'all';
+
+    function filterCommands() {
       const query = search.value.trim().toLowerCase();
+
       root.querySelectorAll('.tcc-command').forEach((row) => {
-        row.hidden = query.length > 0 && !row.dataset.command.includes(query) && !row.textContent.toLowerCase().includes(query);
+        const platformText = row.querySelector('.tcc-platforms').textContent.toLowerCase();
+        const matchesPlatform = activePlatform === 'all' || platformText.split(' · ').includes(activePlatform);
+        const matchesSearch = query.length === 0 || row.dataset.command.includes(query) || row.textContent.toLowerCase().includes(query);
+        row.hidden = !matchesPlatform || !matchesSearch;
+      });
+    }
+
+    platformFilters.forEach((button) => {
+      button.addEventListener('click', () => {
+        activePlatform = button.dataset.commandPlatform;
+        platformFilters.forEach((filter) => {
+          const isActive = filter === button;
+          filter.classList.toggle('is-active', isActive);
+          filter.setAttribute('aria-pressed', String(isActive));
+        });
+        filterCommands();
       });
     });
+
+    search.addEventListener('input', filterCommands);
 
     function setLiveState(platform, isLive) {
       const statusText = isLive ? 'Live' : 'Offline';
