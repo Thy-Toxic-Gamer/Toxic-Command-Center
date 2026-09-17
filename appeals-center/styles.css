@@ -750,6 +750,8 @@ footer {
 .queue-item small { display: block; margin-top: 4px; color: var(--muted); font-size: 0.65rem; text-transform: capitalize; }
 .queue-item em { color: var(--muted); font-size: 0.61rem; font-style: normal; text-transform: uppercase; }
 .queue-signal { width: 7px; height: 7px; border-radius: 50%; background: var(--muted-2); }
+.queue-signal--active,
+.queue-signal--appealed,
 .queue-signal--submitted,
 .queue-signal--under_review { background: var(--info); box-shadow: 0 0 10px rgba(115,216,255,0.45); }
 .queue-signal--needs_information { background: var(--warning); }
