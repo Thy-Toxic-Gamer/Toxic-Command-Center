@@ -240,6 +240,23 @@ function setPortalView(view) {
   if (selected === "track" && appState.viewer && !appState.cases.length) loadMyCases("");
 }
 
+function prepareDiscordAppeal(item) {
+  const form = byId("appeal-form");
+  const punishment = form.elements.namedItem("punishmentType");
+  const action = item.punishment_type === "warn" ? "warning" : item.punishment_type === "kick" ? "other" : item.punishment_type;
+  byId("appeal-platform").value = "discord";
+  sessionStorage.setItem(SELECTED_PLATFORM_KEY, "discord");
+  if ([...punishment.options].some((option) => option.value === action)) punishment.value = action;
+  byId("punishment-reference").value = item.case_code || `TTG-MOD-${String(item.case_number).padStart(6, "0")}`;
+  setNotice(byId("notice"), "error", "");
+  setPortalView("submit");
+  renderIdentityCard();
+  requestAnimationFrame(() => {
+    form.querySelector('textarea[name="reason"]').focus();
+    form.scrollIntoView({ behavior: "smooth", block: "start" });
+  });
+}
+
 function renderCases(cases) {
   const list = byId("case-list"); list.replaceChildren(); byId("case-empty").hidden = cases.length > 0;
   for (const item of cases) {
@@ -261,8 +278,16 @@ function renderCases(cases) {
       const response = document.createElement("div"); response.className = "staff-response";
       response.innerHTML = '<i data-lucide="shield-check"></i><div><small>Staff response</small></div>';
       const text = document.createElement("p"); text.textContent = item.staff_response; response.lastElementChild.append(text); article.append(response);
-    } else {
+    } else if (!item.can_appeal) {
       const pending = document.createElement("div"); pending.className = "pending-line"; pending.innerHTML = "<span></span>Awaiting staff update"; article.append(pending);
+    }
+    if (item.can_appeal) {
+      const actions = document.createElement("div"); actions.className = "case-card__appeal";
+      const copy = document.createElement("span"); copy.textContent = "Want staff to review this action?";
+      const appeal = document.createElement("button"); appeal.type = "button"; appeal.className = "button";
+      appeal.innerHTML = 'Appeal this ticket <i data-lucide="arrow-right"></i>';
+      appeal.addEventListener("click", () => prepareDiscordAppeal(item));
+      actions.append(copy, appeal); article.append(actions);
     }
     list.append(article);
   }
