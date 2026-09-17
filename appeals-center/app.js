@@ -461,7 +461,7 @@ function addMeta(container, label, value) {
 
 function renderCaseReview() {
   const root = byId("case-review"); root.replaceChildren(); const item = appState.selected;
-  if (!item) { root.innerHTML = '<div class="empty-review"><i data-lucide="user-round"></i><h2>Select a case</h2><p>Choose an appeal from the queue to review its full record.</p></div>'; if (window.lucide) window.lucide.createIcons(); return; }
+  if (!item) { root.innerHTML = '<div class="empty-review"><i data-lucide="user-round"></i><h2>Select a case</h2><p>Choose a moderation case or appeal to review its full record.</p></div>'; if (window.lucide) window.lucide.createIcons(); return; }
   const header = document.createElement("header"); const heading = document.createElement("div");
   const caseId = document.createElement("span"); caseId.className = "case-id"; caseId.textContent = item.case_code || `CASE #${item.case_number}`;
   const name = document.createElement("h2"); name.textContent = item.appellant_display_name || item.appellant_username;
@@ -470,7 +470,7 @@ function renderCaseReview() {
   const meta = document.createElement("div"); meta.className = "case-meta";
   addMeta(meta, "Action", item.punishment_type); addMeta(meta, "Reference", item.punishment_reference || "None provided"); addMeta(meta, "Submitted", new Date(item.submitted_at).toLocaleString());
   const statement = document.createElement("article"); statement.className = "appeal-statement";
-  const statementLabel = document.createElement("small"); statementLabel.textContent = "APPELLANT STATEMENT";
+  const statementLabel = document.createElement("small"); statementLabel.textContent = item.source === "discord_moderation" && !item.appeal_submitted ? "ORIGINAL ACTION REASON" : "APPELLANT STATEMENT";
   const statementText = document.createElement("p"); statementText.textContent = item.appeal_reason || "No reason was provided."; statement.append(statementLabel, statementText); root.append(header, meta, statement);
   if (item.evidence?.length) {
     const evidence = document.createElement("div"); evidence.className = "evidence-list";
@@ -486,7 +486,7 @@ function renderCaseReview() {
   }
   for (const value of STAFF_STATUSES) { const option = document.createElement("option"); option.value = value; option.textContent = STATUS_LABELS[value]; option.selected = value === item.status; select.append(option); }
   statusLabel.append(select);
-  const responseLabel = document.createElement("label"); responseLabel.innerHTML = "<span>Response to appellant</span>";
+  const responseLabel = document.createElement("label"); responseLabel.innerHTML = item.source === "discord_moderation" && !item.appeal_submitted ? "<span>Staff message to member</span>" : "<span>Response to appellant</span>";
   const response = document.createElement("textarea"); response.name = "response"; response.rows = 7; response.placeholder = "Explain the decision or ask for the exact information still needed…"; response.value = item.staff_response || ""; responseLabel.append(response);
   const save = document.createElement("button"); save.className = "submit-button button"; save.type = "submit"; save.innerHTML = '<i data-lucide="circle-check"></i>Save and publish update';
   const actions = document.createElement("div"); actions.className = "decision-actions"; actions.append(save);
