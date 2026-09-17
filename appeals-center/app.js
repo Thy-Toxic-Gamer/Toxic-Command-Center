@@ -268,6 +268,10 @@ async function loadViewer() {
   const data = await api("me");
   appState.viewer = data.user; appState.staff = data.staff || null;
   appState.identities = data.identities || { twitch: null, discord: null };
+  const platformSelect = byId("appeal-platform");
+  if (platformSelect && appState.viewer?.platform && !appState.identities[platformSelect.value]) {
+    platformSelect.value = appState.viewer.platform;
+  }
 }
 
 async function initPortal() {
@@ -306,7 +310,12 @@ async function initPortal() {
     try {
       const linked = await finishPendingLink(); await loadViewer();
       if (linked) setNotice(notice, "success", "Your verified Twitch and Discord accounts are linked. Cases from both platforms now load together.");
-    } catch (error) { sessionStorage.removeItem(LINK_PENDING_KEY); if (error.status !== 401) setNotice(notice, "error", error.message); }
+    } catch (error) {
+      sessionStorage.removeItem(LINK_PENDING_KEY);
+      setNotice(notice, "error", error.status === 401
+        ? "Your sign-in could not be verified. Please sign in again with the platform connected to your case."
+        : error.message);
+    }
   }
   renderPortalAccount();
   if (appState.viewer) loadMyCases("");
