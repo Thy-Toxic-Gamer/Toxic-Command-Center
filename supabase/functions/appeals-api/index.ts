@@ -13,6 +13,7 @@ const CORS_HEADERS = {
 };
 const OPEN_STATUSES = ["submitted", "under_review", "needs_information"];
 const CASE_STATUSES = new Set(["submitted", "under_review", "needs_information", "accepted", "denied", "closed", "archived"]);
+const STAFF_CASE_FILTERS = new Set([...CASE_STATUSES, "active", "appealed", "accepted_pending_reversal", "reversed", "failed"]);
 const FINAL_CASE_STATUSES = new Set(["accepted", "denied", "closed", "reversed", "archived"]);
 const PUNISHMENTS = new Set(["ban", "timeout", "mute", "warning", "other"]);
 const PLATFORMS = new Set(["twitch", "discord"]);
@@ -88,7 +89,7 @@ async function healthCheck(admin: any) {
     if (result.status === "rejected") return [names[index], { ok: false, code: "NETWORK" }];
     return [names[index], { ok: !result.value.error, code: result.value.error?.code ?? null }];
   }));
-  return json({ ok: Object.values(services).every((service: any) => service.ok), release: 25, services });
+  return json({ ok: Object.values(services).every((service: any) => service.ok), release: 26, services });
 }
 
 function validateProjectKey(request: Request) {
@@ -763,7 +764,7 @@ async function getStaffCases(admin: any, identity: Identity, body: any) {
   if (!staff) throw new ApiError("This account does not have staff access.", 403);
   const status = typeof body.status === "string" ? body.status : "all";
   const source = ["all", "platform", "discord"].includes(body.source) ? body.source : "all";
-  if (status !== "all" && !CASE_STATUSES.has(status)) throw new ApiError("Choose a valid case status.", 400);
+  if (status !== "all" && !STAFF_CASE_FILTERS.has(status)) throw new ApiError("Choose a valid case status.", 400);
   const cases: any[] = [];
   const loads: Promise<{ rows: any[] }>[] = [];
   if (source !== "discord") {
@@ -781,10 +782,8 @@ async function getStaffCases(admin: any, identity: Identity, body: any) {
         .order("appealed_at", { ascending: false }).limit(200);
       if (result.error) throw new ApiError(`Discord queue unavailable (${result.error.code || "database"}).`, 500);
       return { rows: (result.data ?? [])
-        // Active moderation cases only enter the review queue after an appeal.
-        // Archived cases (including non-appealable kicks) must still remain
-        // available to staff in the Archive view for audit/history purposes.
-        .filter((item: any) => Boolean(item.appealed_at) || item.status === "archived")
+        // Authorized staff need the complete moderation history, including
+        // active cases that have not yet received an appeal.
         .map((item: any) => normalizeDiscordCase(item, true))
         .filter((item: any) => status === "all" || item.status === status) };
     })());
