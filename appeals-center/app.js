@@ -385,8 +385,9 @@ async function initPortal() {
       appealForm.reset(); byId("appeal-platform").value = platform; renderIdentityCard();
       const label = data.case.case_code || `#${data.case.case_number}`;
       byId("case-number").value = data.case.case_code || String(data.case.case_number);
-      setNotice(notice, "success", `Appeal ${label} is secured and in the review queue.`);
       setPortalView("track"); await loadMyCases(data.case.case_code || String(data.case.case_number));
+      if (data.delivery_failure) setNotice(notice, "error", `Appeal ${label} was saved, but Discord delivery failed for the ${data.delivery_failure}.`);
+      else setNotice(notice, "success", `Appeal ${label} is secured and was sent to the moderation channel.`);
     } catch (error) { setNotice(notice, "error", error.message); }
     finally { button.disabled = false; renderIdentityCard(); }
   });
