@@ -188,16 +188,16 @@ function renderIdentityCard() {
 function discordAppealAction(value) {
   const action = String(value || "").toLowerCase();
   if (action === "warn") return "warning";
-  if (["ban", "timeout", "mute", "kick"].includes(action)) return action;
+  if (["ban", "timeout", "mute"].includes(action)) return action;
   return "other";
 }
 
 function actionLabel(value) {
-  return ({ ban: "Ban", timeout: "Timeout", mute: "Mute", warning: "Warning", kick: "Kick", other: "Other action" })[value] || String(value || "Action");
+  return ({ ban: "Ban", timeout: "Timeout", mute: "Mute", warning: "Warning", other: "Other action" })[value] || String(value || "Action");
 }
 
 function eligibleDiscordCases(action = "") {
-  const cases = appState.cases.filter((item) => item.source === "discord_moderation" && item.can_appeal);
+  const cases = appState.cases.filter((item) => item.source === "discord_moderation" && item.can_appeal && String(item.punishment_type).toLowerCase() !== "kick");
   return action ? cases.filter((item) => discordAppealAction(item.punishment_type) === action) : cases;
 }
 
