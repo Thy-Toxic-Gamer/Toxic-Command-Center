@@ -494,20 +494,12 @@ function renderCaseReview() {
 async function loadStaffCases(status = appState.filter) {
   const list = byId("queue-list"); list.innerHTML = '<div class="loading-row">Loading cases…</div>'; staffNotice("error", "");
   try {
-    const results = await Promise.allSettled([
-      api("get_staff_cases", { status, source: "platform" }),
-      api("get_staff_cases", { status, source: "discord" }),
-    ]);
-    const loaded = results.filter((result) => result.status === "fulfilled");
-    if (!loaded.length) throw results[0].reason;
-    appState.cases = loaded.flatMap((result) => result.value.cases || []);
-    appState.cases.sort((a, b) => new Date(b.submitted_at) - new Date(a.submitted_at));
-    appState.filter = status;
+    const data = await api("get_staff_cases", { status, source: "all" });
+    appState.cases = data.cases || []; appState.filter = status;
     byId("active-count").textContent = String(appState.cases.filter((item) => OPEN_STATUSES.has(item.status)).length);
     if (appState.selected) appState.selected = appState.cases.find((item) => item.id === appState.selected.id) || null;
     renderStaffQueue(); renderCaseReview();
-    const failed = results.filter((result) => result.status === "rejected");
-    if (failed.length) staffNotice("error", `${failed[0].reason.message} The other platform queue is still available.`);
+    if (data.warnings?.length) staffNotice("warning", `${data.warnings.join(" ")} The available cases are still shown.`);
   } catch (error) { staffNotice("error", error.message); list.replaceChildren(); }
 }
 
