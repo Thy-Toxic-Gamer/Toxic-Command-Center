@@ -1,0 +1,9 @@
+{
+  "compilerOptions": {
+    "lib": ["deno.window", "dom", "dom.iterable"],
+    "strict": true
+  },
+  "imports": {
+    "tweetnacl": "npm:tweetnacl@1.0.3"
+  }
+}
