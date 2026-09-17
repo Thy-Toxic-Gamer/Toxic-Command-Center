@@ -583,6 +583,7 @@ textarea:focus { outline: 0; border-color: rgba(124, 255, 0, 0.56); background: 
 }
 .notice svg { width: 17px; height: 17px; flex: 0 0 17px; margin-top: 1px; }
 .notice--success { border-color: rgba(124, 255, 0, 0.34); color: #dfffc3; background: var(--acid-soft); }
+.notice--warning { border-color: rgba(255, 190, 74, 0.36); color: #ffe2a6; background: rgba(255, 190, 74, 0.08); }
 .notice--error { border-color: rgba(255, 43, 138, 0.34); color: #ffc3d8; background: var(--pink-soft); }
 
 .case-search {
