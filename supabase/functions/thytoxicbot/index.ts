@@ -1,6 +1,6 @@
 import nacl from "tweetnacl";
 import { APPLICATION_ID, APPEALS_CHANNEL_ID, DURATION_SECONDS, T_COMMAND } from "./commands.ts";
-import { APPEAL_URL, STAFF_GUIDE_MESSAGE } from "./guide.ts";
+import { APPEAL_URL, STAFF_GUIDE_MESSAGES } from "./guide.ts";
 
 declare const EdgeRuntime: { waitUntil(promise: Promise<unknown>): void };
 
@@ -264,32 +264,44 @@ async function insertEvent(caseId: string, data: Json): Promise<void> {
 
 async function publishGuide(config: AnyRecord): Promise<string> {
   const channelId = config.appeals_channel_id;
-  let message: AnyRecord | null = null;
-  if (config.staff_guide_message_id) {
-    try {
-      message = await discord(`/channels/${channelId}/messages/${config.staff_guide_message_id}`, {
-        method: "PATCH",
-        body: JSON.stringify(STAFF_GUIDE_MESSAGE),
+  const existingIds = Array.isArray(config.staff_guide_message_ids)
+    ? config.staff_guide_message_ids.map(String)
+    : config.staff_guide_message_id ? [String(config.staff_guide_message_id)] : [];
+  const messageIds: string[] = [];
+
+  for (let index = 0; index < STAFF_GUIDE_MESSAGES.length; index += 1) {
+    const payload = STAFF_GUIDE_MESSAGES[index];
+    const existingId = existingIds[index];
+    let message: AnyRecord | null = null;
+    if (existingId) {
+      try {
+        message = await discord(`/channels/${channelId}/messages/${existingId}`, {
+          method: "PATCH",
+          body: JSON.stringify(payload),
+        });
+      } catch (error) {
+        if (!(error instanceof DiscordError) || error.status !== 404) throw error;
+      }
+    }
+    if (!message) {
+      message = await discord(`/channels/${channelId}/messages`, {
+        method: "POST",
+        body: JSON.stringify(payload),
       });
+    }
+    messageIds.push(String(message.id));
+    try {
+      await discord(`/channels/${channelId}/pins/${message.id}`, { method: "PUT" });
     } catch (error) {
-      if (!(error instanceof DiscordError) || error.status !== 404) throw error;
+      console.warn("guide pin skipped", safeMessage(error));
     }
   }
-  if (!message) {
-    message = await discord(`/channels/${channelId}/messages`, {
-      method: "POST",
-      body: JSON.stringify(STAFF_GUIDE_MESSAGE),
-    });
-    await dbUpdate("discord_bot_guilds", `guild_id=eq.${encodeURIComponent(config.guild_id)}`, {
-      staff_guide_message_id: message.id,
-    });
-  }
-  try {
-    await discord(`/channels/${channelId}/pins/${message.id}`, { method: "PUT" });
-  } catch (error) {
-    console.warn("guide pin skipped", safeMessage(error));
-  }
-  return message.id;
+
+  await dbUpdate("discord_bot_guilds", `guild_id=eq.${encodeURIComponent(config.guild_id)}`, {
+    staff_guide_message_id: messageIds[0],
+    staff_guide_message_ids: messageIds,
+  });
+  return messageIds[0];
 }
 
 async function bootstrap(): Promise<void> {
