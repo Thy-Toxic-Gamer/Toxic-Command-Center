@@ -313,7 +313,7 @@ function renderCases(cases) {
     const actionValue = document.createElement("strong"); actionValue.textContent = String(item.punishment_type || "").replaceAll("_", " "); action.append(actionValue);
     const submitted = document.createElement("div"); submitted.innerHTML = "<small>Submitted</small>";
     const submittedValue = document.createElement("strong"); submittedValue.textContent = new Date(item.submitted_at).toLocaleDateString(); submitted.append(submittedValue);
-    const reason = document.createElement("p"); reason.textContent = item.appeal_reason; body.append(action, submitted, reason); article.append(top, body);
+    const reason = document.createElement("p"); reason.textContent = item.appeal_reason || "No reason was provided."; body.append(action, submitted, reason); article.append(top, body);
     if (item.staff_response) {
       const response = document.createElement("div"); response.className = "staff-response";
       response.innerHTML = '<i data-lucide="shield-check"></i><div><small>Staff response</small></div>';
@@ -447,7 +447,7 @@ function renderCaseReview() {
   addMeta(meta, "Action", item.punishment_type); addMeta(meta, "Reference", item.punishment_reference || "None provided"); addMeta(meta, "Submitted", new Date(item.submitted_at).toLocaleString());
   const statement = document.createElement("article"); statement.className = "appeal-statement";
   const statementLabel = document.createElement("small"); statementLabel.textContent = "APPELLANT STATEMENT";
-  const statementText = document.createElement("p"); statementText.textContent = item.appeal_reason; statement.append(statementLabel, statementText); root.append(header, meta, statement);
+  const statementText = document.createElement("p"); statementText.textContent = item.appeal_reason || "No reason was provided."; statement.append(statementLabel, statementText); root.append(header, meta, statement);
   if (item.evidence?.length) {
     const evidence = document.createElement("div"); evidence.className = "evidence-list";
     const label = document.createElement("small"); label.textContent = "EVIDENCE"; evidence.append(label);
