@@ -32,7 +32,7 @@ function startTwitchAuth(returnTo = "./") {
     redirect_uri: REDIRECT_URI,
     scope: "user:read:email",
     state,
-    force_verify: "false",
+    force_verify: "true",
   });
   location.assign(`https://id.twitch.tv/oauth2/authorize?${query}`);
 }
@@ -66,11 +66,21 @@ function completeOAuthReturn() {
   return true;
 }
 
-function signOut() {
+function signOut(destination = null) {
   sessionStorage.removeItem(TOKEN_KEY);
   appState.viewer = null;
   appState.staff = null;
-  location.replace("./");
+  const next = typeof destination === "string"
+    ? destination
+    : document.body.dataset.page === "staff" ? "staff.html" : "./";
+  location.replace(next);
+}
+
+function switchTwitchAccount(returnTo = "./") {
+  sessionStorage.removeItem(TOKEN_KEY);
+  appState.viewer = null;
+  appState.staff = null;
+  startTwitchAuth(returnTo);
 }
 
 async function api(action, payload = {}) {
@@ -141,6 +151,14 @@ function renderPortalAccount() {
     staff.textContent = "Staff";
     slot.append(staff);
   }
+  const switchAccount = document.createElement("button");
+  switchAccount.type = "button";
+  switchAccount.className = "icon-button";
+  switchAccount.setAttribute("aria-label", "Switch Twitch account");
+  switchAccount.title = "Switch Twitch account";
+  switchAccount.innerHTML = '<i data-lucide="refresh-cw"></i>';
+  switchAccount.addEventListener("click", () => switchTwitchAccount("./"));
+  slot.append(switchAccount);
   const logout = document.createElement("button");
   logout.type = "button";
   logout.className = "icon-button";
@@ -344,6 +362,7 @@ async function loadStaffCases(status = appState.filter) {
 
 async function initStaff() {
   byId("staff-signin").addEventListener("click", () => startTwitchAuth("staff.html"));
+  byId("staff-switch").addEventListener("click", () => switchTwitchAccount("staff.html"));
   byId("staff-logout").addEventListener("click", signOut);
   byId("staff-search").addEventListener("input", renderStaffQueue);
   byId("filter-row").addEventListener("click", (event) => {
@@ -355,8 +374,12 @@ async function initStaff() {
     const data = await api("me"); appState.viewer = data.user; appState.staff = data.staff;
     if (!appState.staff) throw Object.assign(new Error("This Twitch account does not have staff access."), { status: 403 });
     byId("staff-role").innerHTML = `<i data-lucide="shield-check"></i>${appState.staff.role}`;
-    byId("staff-logout").hidden = false; byId("staff-workspace").hidden = false; await loadStaffCases("all");
-  } catch (error) { staffNotice("error", error.message); if (error.status === 401) byId("staff-signin").hidden = false; }
+    byId("staff-switch").hidden = false; byId("staff-logout").hidden = false; byId("staff-workspace").hidden = false; await loadStaffCases("all");
+  } catch (error) {
+    staffNotice("error", error.status === 403 ? "This Twitch account does not have staff access. Switch to an authorized Twitch account." : error.message);
+    byId("staff-signin").textContent = error.status === 403 ? "Use another Twitch account" : "Sign in with Twitch";
+    byId("staff-signin").hidden = false;
+  }
   if (window.lucide) window.lucide.createIcons();
 }
 
