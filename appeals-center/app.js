@@ -457,6 +457,9 @@ function renderCaseReview() {
   const form = document.createElement("form"); form.className = "decision-form";
   const statusLabel = document.createElement("label"); statusLabel.innerHTML = "<span>Decision status</span>";
   const select = document.createElement("select"); select.name = "status";
+  if (!STAFF_STATUSES.includes(item.status)) {
+    const current = document.createElement("option"); current.value = item.status; current.textContent = STATUS_LABELS[item.status] || item.status; current.selected = true; current.disabled = true; select.append(current);
+  }
   for (const value of STAFF_STATUSES) { const option = document.createElement("option"); option.value = value; option.textContent = STATUS_LABELS[value]; option.selected = value === item.status; select.append(option); }
   statusLabel.append(select);
   const responseLabel = document.createElement("label"); responseLabel.innerHTML = "<span>Response to appellant</span>";
@@ -484,8 +487,10 @@ function renderCaseReview() {
       const data = await api("update_case", { id: item.id, source: item.source, status: select.value, response: response.value });
       appState.cases = appState.cases.map((entry) => entry.id === item.id ? data.case : entry); appState.selected = data.case;
       renderStaffQueue(); renderCaseReview();
-      if (data.delivery_failures?.length) staffNotice("error", `Case #${data.case.case_number} was updated, but Discord delivery failed for: ${data.delivery_failures.join(", ")}.`);
-      else staffNotice("success", `Case #${data.case.case_number} was updated and sent to Discord.`);
+      if (data.reversal?.attempted && data.reversal.success === false) staffNotice("error", `The appeal was accepted, but the original ${data.reversal.action} could not be reversed automatically: ${data.reversal.message}`);
+      else if (data.delivery_failures?.length) staffNotice("error", `Case #${data.case.case_number} was updated, but Discord delivery failed for: ${data.delivery_failures.join(", ")}.`);
+      else if (data.reversal?.success) staffNotice("success", `Appeal accepted. The original ${data.reversal.action} was reversed and Discord was updated.`);
+      else staffNotice("success", data.reversal?.message || `Case #${data.case.case_number} was updated and sent to Discord.`);
     } catch (error) { staffNotice("error", error.message); save.disabled = false; save.innerHTML = '<i data-lucide="circle-check"></i>Save and publish update'; }
   });
   root.append(form); if (window.lucide) window.lucide.createIcons();
