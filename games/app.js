@@ -34,12 +34,18 @@
   const viewerAvatar = document.querySelector("#viewerAvatar");
   const viewerName = document.querySelector("#viewerName");
   const viewerRole = document.querySelector("#viewerRole");
+  const requestStatus = document.querySelector("#requestStatus");
+  const availabilityTitle = document.querySelector("#availabilityTitle");
+  const availabilityMessage = document.querySelector("#availabilityMessage");
+  const availabilityCountdown = document.querySelector("#availabilityCountdown");
   const pageSize = 96;
   let activeFilter = "all";
   let viewer = null;
   let selectedGame = null;
   let selectedPlan = null;
   let requestComplete = false;
+  let availabilityState = { open: false, mode: "loading", message: "Connecting to the request service…", reopensAt: null };
+  let countdownTimer = null;
 
   const colors = {
     PC: "pc", "Nintendo Switch": "switch", "Nintendo Switch 2": "switch",
@@ -56,6 +62,14 @@
     "&": "&amp;", "<": "&lt;", ">": "&gt;", "'": "&#39;", '"': "&quot;",
   })[char]);
   const safeId = (value) => String(value).replace(/[^A-Za-z0-9]+/g, "-").replace(/^-|-$/g, "");
+  const randomizedGames = [...games];
+  for (let index = randomizedGames.length - 1; index > 0; index -= 1) {
+    const random = new Uint32Array(1);
+    crypto.getRandomValues(random);
+    const swapWith = random[0] % (index + 1);
+    [randomizedGames[index], randomizedGames[swapWith]] = [randomizedGames[swapWith], randomizedGames[index]];
+  }
+  const randomOrder = new Map(randomizedGames.map((game, index) => [game.id, index]));
 
   function randomState() {
     const bytes = new Uint8Array(32);
@@ -97,6 +111,45 @@
       throw Object.assign(new Error(data.error || "The Game Request service could not complete this request."), { status: response.status });
     }
     return data;
+  }
+
+  function remainingLabel(value) {
+    const remaining = new Date(value).getTime() - Date.now();
+    if (remaining <= 0) return "Reopening now";
+    const days = Math.floor(remaining / 86400000);
+    const hours = Math.floor((remaining % 86400000) / 3600000);
+    const minutes = Math.floor((remaining % 3600000) / 60000);
+    const seconds = Math.floor((remaining % 60000) / 1000);
+    return `${days}d ${String(hours).padStart(2, "0")}h ${String(minutes).padStart(2, "0")}m ${String(seconds).padStart(2, "0")}s`;
+  }
+
+  function updateAvailabilityBanner() {
+    const state = availabilityState;
+    requestStatus.className = `request-status request-status--${state.mode === "loading" ? "loading" : state.open ? "open" : "closed"}`;
+    availabilityTitle.textContent = state.mode === "loading" ? "Checking availability" : state.open ? "Requests open" : "Requests closed";
+    availabilityMessage.textContent = state.message;
+    clearInterval(countdownTimer);
+    if (state.reopensAt) {
+      availabilityCountdown.hidden = false;
+      const update = () => { availabilityCountdown.textContent = `Reopens in ${remainingLabel(state.reopensAt)}`; };
+      update();
+      countdownTimer = setInterval(update, 1000);
+    } else {
+      availabilityCountdown.hidden = true;
+      availabilityCountdown.textContent = "";
+    }
+  }
+
+  async function loadAvailability() {
+    try {
+      const data = await api("availability");
+      availabilityState = data.availability;
+    } catch (error) {
+      availabilityState = { open: false, mode: "error", message: "Availability could not be verified. Please try again shortly.", reopensAt: null };
+      console.error(error);
+    }
+    updateAvailabilityBanner();
+    render();
   }
 
   function setNotice(kind, message) {
@@ -194,6 +247,9 @@
       return inCategory && (!term || haystack.includes(term));
     });
     return result.sort((a, b) => {
+      if (sort.value === "random") return activeFilter === "all"
+        ? (randomOrder.get(a.id) ?? 0) - (randomOrder.get(b.id) ?? 0)
+        : a.id.localeCompare(b.id, undefined, { numeric: true });
       if (sort.value === "title") return a.title.localeCompare(b.title);
       if (sort.value === "year-desc") return (b.year || 0) - (a.year || 0) || a.title.localeCompare(b.title);
       if (sort.value === "year-asc") return (a.year || 9999) - (b.year || 9999) || a.title.localeCompare(b.title);
@@ -231,6 +287,8 @@
           ${game.storeUrl ? `<a class="store-link" href="${escapeHtml(game.storeUrl)}" target="_blank" rel="noopener noreferrer">PlayStation Store</a>` : ""}
           ${game.requestable === false
             ? '<button class="request-button unavailable" type="button" disabled>Requests unavailable</button>'
+            : !availabilityState.open
+              ? `<button class="request-button unavailable" type="button" disabled>${availabilityState.mode === "loading" ? "Checking availability" : "Requests closed"}</button>`
             : `<button class="request-button" data-request-id="${escapeHtml(game.id)}">Request this game</button>`}
         </div>
       </article>`;
@@ -328,6 +386,7 @@
         ? `${result.code} is approved as a free owner request.${data.discordPosted ? " The Discord record has been created." : " The request is saved; its Discord record is pending."}`
         : `${result.code} was submitted for review. Payment will open only after approval.`);
       updateRequestDialog();
+      loadAvailability();
     } catch (error) {
       setNotice("error", error.message);
       submitRequest.disabled = false;
@@ -343,6 +402,9 @@
   });
 
   updateCounts();
+  updateAvailabilityBanner();
   render();
+  loadAvailability();
   loadViewer();
+  setInterval(() => { if (document.visibilityState === "visible") loadAvailability(); }, 30000);
 })();

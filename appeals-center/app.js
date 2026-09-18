@@ -73,8 +73,8 @@ function completeOAuthReturn() {
   if (error || !token || !expected || hash.get("state") !== expected || !PROVIDERS[platform]) {
     sessionStorage.setItem("thy_toxic_appeals_auth_error", error || "Sign-in could not be verified. Please try again.");
     sessionStorage.removeItem(RETURN_KEY);
-    if (returnTo === "games") {
-      location.replace("../games/?auth=error");
+    if (returnTo === "games" || returnTo === "games-staff") {
+      location.replace(returnTo === "games-staff" ? "../games/staff.html?auth=error" : "../games/?auth=error");
       return "redirecting";
     }
     return true;
@@ -90,6 +90,10 @@ function completeOAuthReturn() {
   }
   if (returnTo === "games") {
     location.replace("../games/");
+    return "redirecting";
+  }
+  if (returnTo === "games-staff") {
+    location.replace("../games/staff.html");
     return "redirecting";
   }
   if (returnTo === "track") sessionStorage.setItem(AFTER_AUTH_VIEW_KEY, "track");

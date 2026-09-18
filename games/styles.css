@@ -95,6 +95,18 @@ h1 { margin: 0; font-size: clamp(2.25rem, 5vw, 4.6rem); letter-spacing: -.045em;
 .search-wrap input { width: 100%; border: 0; outline: 0; background: transparent; color: var(--text); font-size: 1rem; }
 .search-wrap input::placeholder { color: #7f887f; }
 
+.request-status { display: grid; grid-template-columns: auto minmax(0, 1fr) auto auto; align-items: center; gap: 13px; margin: -8px 0 24px; padding: 13px 15px; border: 1px solid rgba(181,255,24,.45); border-left: 4px solid var(--toxic); background: linear-gradient(90deg, rgba(181,255,24,.08), rgba(15,19,16,.96) 26%); }
+.request-status-light { width: 12px; height: 12px; border-radius: 50%; background: var(--toxic); box-shadow: 0 0 16px var(--toxic); }
+.request-status small, .request-status strong { display: block; }
+.request-status small { color: var(--muted); font-size: .66rem; font-weight: 800; letter-spacing: .13em; text-transform: uppercase; }
+.request-status strong { margin-top: 2px; font-size: .98rem; text-transform: uppercase; }
+.request-status p { margin: 3px 0 0; color: #cbd2cc; font-size: .78rem; }
+.request-status time { min-width: 180px; padding: 8px 10px; border: 1px solid #3b463c; border-radius: 9px; color: #fff; background: #0b0e0c; font-size: .8rem; font-weight: 900; text-align: center; }
+.request-status > a { color: var(--toxic); font-size: .7rem; font-weight: 900; letter-spacing: .08em; text-decoration: none; text-transform: uppercase; }
+.request-status--closed { border-color: rgba(255,59,147,.42); border-left-color: var(--pink); background: linear-gradient(90deg, rgba(255,59,147,.08), rgba(15,19,16,.96) 26%); }
+.request-status--closed .request-status-light { background: var(--pink); box-shadow: 0 0 16px var(--pink); }
+.request-status--loading .request-status-light { background: #879087; box-shadow: none; }
+
 .catalog-shell { display: grid; grid-template-columns: 250px minmax(0, 1fr); gap: 28px; align-items: start; }
 .filters { position: sticky; top: 98px; max-height: calc(100vh - 120px); overflow: auto; padding: 14px; border: 1px solid #303a31; border-top-color: rgba(181,255,24,.5); background: linear-gradient(145deg, rgba(22,27,23,.96), rgba(9,12,10,.96)); box-shadow: 0 16px 40px rgba(0,0,0,.25); scrollbar-width: thin; scrollbar-color: #3a443b transparent; }
 .filter-group { margin-top: 24px; }
@@ -204,6 +216,8 @@ h1 { margin: 0; font-size: clamp(2.25rem, 5vw, 4.6rem); letter-spacing: -.045em;
   .catalog-status { display: none; }
   .topbar-account { width: auto; margin-left: auto; }
   .viewer-account strong, .viewer-account small { max-width: 88px; }
+  .request-status { grid-template-columns: auto 1fr; }
+  .request-status time, .request-status > a { grid-column: 2; width: 100%; }
   main { padding-inline: 14px; }
   .game-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 9px; }
   .game-card { min-height: 300px; }

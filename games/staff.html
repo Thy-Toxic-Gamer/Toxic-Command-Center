@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#090b0a">
+  <meta name="description" content="Authorized Game Request staff controls and archives.">
+  <title>Game Request Staff | ThyToxicGamer</title>
+  <link rel="icon" type="image/png" href="thytoxicgamer-tab-icon.png">
+  <link rel="apple-touch-icon" href="thytoxicgamer-tab-icon.png">
+  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="staff.css">
+</head>
+<body>
+  <header class="topbar staff-topbar">
+    <a class="brand" href="./" aria-label="Return to Game Requests">
+      <img class="brand-mark" src="thytoxicgamer-tab-icon.png" alt="">
+      <span><strong>Game Request Staff</strong><small>Command Network</small></span>
+    </a>
+    <nav class="command-nav" aria-label="Staff navigation">
+      <a href="./">Public Catalog</a>
+      <a class="active" href="staff.html" aria-current="page">Staff &amp; Archives</a>
+      <a href="../">Command Center</a>
+    </nav>
+    <div class="viewer-account" id="staffAccount" hidden>
+      <img id="staffAvatar" alt="">
+      <span><strong id="staffName"></strong><small id="staffRole"></small></span>
+      <button id="staffSignOut" type="button">Sign out</button>
+    </div>
+  </header>
+
+  <main class="staff-main">
+    <section class="staff-hero">
+      <div><p class="eyebrow">Authorized operations</p><h1>Request Control</h1><p>Manage availability, active requests, the rest timer, and archived records.</p></div>
+      <div class="staff-live-state" id="staffLiveState"><span class="status-dot"></span><strong>Checking system</strong><small></small></div>
+    </section>
+
+    <section class="staff-gate" id="staffGate">
+      <img src="thytoxicgamer-tab-icon.png" alt="">
+      <h2>Staff sign-in required</h2>
+      <p>Owner, administrators, and moderators can access this section.</p>
+      <div><button type="button" data-staff-signin="twitch">Continue with Twitch</button><button type="button" data-staff-signin="discord">Continue with Discord</button></div>
+      <p class="staff-error" id="staffGateError" hidden></p>
+    </section>
+
+    <div id="staffWorkspace" hidden>
+      <section class="control-panel">
+        <div class="panel-heading"><div><p class="eyebrow">Public availability</p><h2>Open or close requests</h2></div><span id="staffCountdown"></span></div>
+        <div class="control-grid">
+          <button class="state-action state-open" id="openRequests" type="button"><strong>Open requests</strong><span>Clears a manual closure or rest timer.</span></button>
+          <form id="closeRequestsForm">
+            <label><span>Closed message</span><input id="closedMessage" maxlength="250" value="Game requests are temporarily closed."></label>
+            <label><span>Scheduled reopening <small>optional</small></span><input id="reopensAt" type="datetime-local"></label>
+            <button class="state-action state-close" type="submit"><strong>Close requests</strong><span>Keep closed until manually opened or the scheduled time.</span></button>
+          </form>
+        </div>
+        <div class="staff-notice" id="staffNotice" hidden></div>
+      </section>
+
+      <section class="staff-section">
+        <div class="panel-heading"><div><p class="eyebrow">Current workflow</p><h2>Active request</h2></div><span id="queueCount">0 active</span></div>
+        <div class="request-queue" id="requestQueue"></div>
+      </section>
+
+      <section class="staff-section">
+        <div class="panel-heading"><div><p class="eyebrow">Staff-only records</p><h2>Request archives</h2></div><span id="archiveCount">0 archived</span></div>
+        <p class="archive-rule">Completed, denied, cancelled, and expired requests appear here. Only the owner can permanently delete them.</p>
+        <div class="archive-list" id="archiveList"></div>
+      </section>
+    </div>
+  </main>
+
+  <script src="staff.js"></script>
+</body>
+</html>

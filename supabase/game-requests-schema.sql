@@ -2,8 +2,23 @@ create table if not exists public.game_request_settings (
   id boolean primary key default true check (id),
   requests_open boolean not null default true,
   closed_message text not null default 'Game requests are temporarily closed.',
+  manual_closed boolean not null default false,
+  manual_reopens_at timestamptz,
+  cooldown_until timestamptz,
+  current_request_id uuid,
+  updated_by_platform text,
+  updated_by_user_id text,
+  updated_by_name text,
   updated_at timestamptz not null default now()
 );
+
+alter table public.game_request_settings add column if not exists manual_closed boolean not null default false;
+alter table public.game_request_settings add column if not exists manual_reopens_at timestamptz;
+alter table public.game_request_settings add column if not exists cooldown_until timestamptz;
+alter table public.game_request_settings add column if not exists current_request_id uuid;
+alter table public.game_request_settings add column if not exists updated_by_platform text;
+alter table public.game_request_settings add column if not exists updated_by_user_id text;
+alter table public.game_request_settings add column if not exists updated_by_name text;
 
 insert into public.game_request_settings (id, requests_open)
 values (true, true)
@@ -54,9 +69,20 @@ create table if not exists public.game_requests (
   status text not null check (status in ('pending', 'awaiting_payment', 'approved', 'scheduled', 'completed', 'denied', 'cancelled', 'expired')),
   discord_channel_id text,
   discord_message_id text,
+  completed_at timestamptz,
+  resolved_by_platform text,
+  resolved_by_user_id text,
+  resolved_by_name text,
+  resolution_note text,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
+
+alter table public.game_requests add column if not exists completed_at timestamptz;
+alter table public.game_requests add column if not exists resolved_by_platform text;
+alter table public.game_requests add column if not exists resolved_by_user_id text;
+alter table public.game_requests add column if not exists resolved_by_name text;
+alter table public.game_requests add column if not exists resolution_note text;
 
 create index if not exists game_requests_twitch_user_idx
   on public.game_requests (twitch_user_id, created_at desc);
@@ -64,6 +90,9 @@ create index if not exists game_requests_status_idx
   on public.game_requests (status, created_at desc);
 create index if not exists game_requests_game_idx
   on public.game_requests (game_id, status);
+create unique index if not exists game_requests_one_active_idx
+  on public.game_requests ((true))
+  where status in ('pending', 'awaiting_payment', 'approved', 'scheduled');
 
 create table if not exists public.game_request_events (
   id bigint generated always as identity primary key,
@@ -77,24 +106,44 @@ create table if not exists public.game_request_events (
 create index if not exists game_request_events_request_idx
   on public.game_request_events (request_id, created_at);
 
+create table if not exists public.game_request_system_events (
+  id bigint generated always as identity primary key,
+  event_type text not null,
+  actor_platform text,
+  actor_user_id text,
+  actor_name text,
+  actor_role text,
+  request_id uuid references public.game_requests(id) on delete set null,
+  details jsonb not null default '{}'::jsonb,
+  created_at timestamptz not null default now()
+);
+
+create index if not exists game_request_system_events_created_idx
+  on public.game_request_system_events (created_at desc);
+
 alter table public.game_request_settings enable row level security;
 alter table public.game_request_staff enable row level security;
 alter table public.game_catalog enable row level security;
 alter table public.game_requests enable row level security;
 alter table public.game_request_events enable row level security;
+alter table public.game_request_system_events enable row level security;
 
 revoke all on table public.game_request_settings from anon, authenticated;
 revoke all on table public.game_request_staff from anon, authenticated;
 revoke all on table public.game_catalog from anon, authenticated;
 revoke all on table public.game_requests from anon, authenticated;
 revoke all on table public.game_request_events from anon, authenticated;
+revoke all on table public.game_request_system_events from anon, authenticated;
 revoke all on sequence public.game_requests_request_number_seq from anon, authenticated;
 revoke all on sequence public.game_request_events_id_seq from anon, authenticated;
+revoke all on sequence public.game_request_system_events_id_seq from anon, authenticated;
 
 grant select, insert, update, delete on table public.game_request_settings to service_role;
 grant select, insert, update, delete on table public.game_request_staff to service_role;
 grant select, insert, update, delete on table public.game_catalog to service_role;
 grant select, insert, update, delete on table public.game_requests to service_role;
 grant select, insert, update, delete on table public.game_request_events to service_role;
+grant select, insert, update, delete on table public.game_request_system_events to service_role;
 grant usage, select on sequence public.game_requests_request_number_seq to service_role;
 grant usage, select on sequence public.game_request_events_id_seq to service_role;
+grant usage, select on sequence public.game_request_system_events_id_seq to service_role;

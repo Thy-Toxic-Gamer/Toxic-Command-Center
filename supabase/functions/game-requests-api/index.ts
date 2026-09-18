@@ -112,6 +112,67 @@ async function ownerStatus(admin: any, twitchUserId: string) {
   return data?.role === "owner";
 }
 
+async function requestAvailability(admin: any) {
+  const now = Date.now();
+  let { data: settings, error: settingsError } = await admin.from("game_request_settings")
+    .select("*").eq("id", true).single();
+  if (settingsError) throw new ApiError("Game Request settings are unavailable.", 500);
+
+  if (settings.manual_closed && settings.manual_reopens_at && new Date(settings.manual_reopens_at).getTime() <= now) {
+    const reopened = await admin.from("game_request_settings").update({
+      manual_closed: false,
+      manual_reopens_at: null,
+      requests_open: true,
+      updated_at: new Date().toISOString(),
+    }).eq("id", true).select("*").single();
+    if (!reopened.error) settings = reopened.data;
+  }
+
+  const { data: activeRows, error: activeError } = await admin.from("game_requests")
+    .select("id,request_number,game_title,status")
+    .in("status", ACTIVE_STATUSES)
+    .order("created_at", { ascending: true })
+    .limit(1);
+  if (activeError) throw new ApiError("Active requests could not be checked.", 500);
+  const active = activeRows?.[0] ?? null;
+  const cooldownActive = settings.cooldown_until && new Date(settings.cooldown_until).getTime() > now;
+  const manualActive = Boolean(settings.manual_closed) && (!settings.manual_reopens_at || new Date(settings.manual_reopens_at).getTime() > now);
+  const open = !active && !manualActive && !cooldownActive;
+  let mode = "open";
+  let message = "Game requests are open.";
+  let reopensAt: string | null = null;
+  if (active) {
+    mode = "active_request";
+    message = `Requests are closed while ${active.game_title} is being processed.`;
+  } else if (manualActive) {
+    mode = "manual";
+    message = settings.closed_message || "Game requests are temporarily closed.";
+    reopensAt = settings.manual_reopens_at;
+  } else if (cooldownActive) {
+    mode = "cooldown";
+    message = "The streamer is resting after the previous request.";
+    reopensAt = settings.cooldown_until;
+  }
+  if (settings.requests_open !== open || settings.current_request_id !== active?.id) {
+    await admin.from("game_request_settings").update({
+      requests_open: open,
+      current_request_id: active?.id ?? null,
+      updated_at: new Date().toISOString(),
+    }).eq("id", true);
+  }
+  return {
+    open,
+    mode,
+    message,
+    reopensAt,
+    activeRequest: active ? {
+      code: `GR-${String(active.request_number).padStart(6, "0")}`,
+      gameTitle: active.game_title,
+      status: active.status,
+    } : null,
+  };
+}
+
 async function sendDiscordRecord(requestRow: any) {
   const token = Deno.env.get("DISCORD_BOT_TOKEN");
   if (!token) throw new Error("Discord bot connection is unavailable.");
@@ -148,12 +209,11 @@ async function createRequest(admin: any, identity: TwitchIdentity, isOwner: bool
   const plan = String(body.plan ?? "").trim();
   if (!gameId || !(plan in PRICE_BY_PLAN)) throw new ApiError("Choose a game and request type.");
 
-  const [{ data: settings, error: settingsError }, { data: game, error: gameError }] = await Promise.all([
-    admin.from("game_request_settings").select("requests_open,closed_message").eq("id", true).single(),
+  const [availability, { data: game, error: gameError }] = await Promise.all([
+    requestAvailability(admin),
     admin.from("game_catalog").select("id,title,system,requestable").eq("id", gameId).maybeSingle(),
   ]);
-  if (settingsError) throw new ApiError("Game Request settings are unavailable.", 500);
-  if (!settings.requests_open && !isOwner) throw new ApiError(settings.closed_message, 403);
+  if (!availability.open) throw new ApiError(availability.message, 409);
   if (gameError) throw new ApiError("The game catalog could not be verified.", 500);
   if (!game) throw new ApiError("That game is not in the current catalog.", 404);
   if (!game.requestable) throw new ApiError("Requests are unavailable for this game.", 409);
@@ -195,7 +255,14 @@ async function createRequest(admin: any, identity: TwitchIdentity, isOwner: bool
     status: isOwner ? "approved" : "pending",
   };
   const { data: created, error } = await admin.from("game_requests").insert(row).select("*").single();
+  if (error?.code === "23505") throw new ApiError("Another request was just submitted. Game requests are now closed.", 409);
   if (error) throw new ApiError("The request could not be saved. Please try again.", 500);
+
+  await admin.from("game_request_settings").update({
+    requests_open: false,
+    current_request_id: created.id,
+    updated_at: new Date().toISOString(),
+  }).eq("id", true);
 
   await admin.from("game_request_events").insert({
     request_id: created.id,
@@ -248,6 +315,7 @@ Deno.serve(async (request: Request) => {
       const { count, error } = await admin.from("game_catalog").select("id", { count: "exact", head: true });
       return json({ ok: !error, catalogCount: count ?? 0 });
     }
+    if (action === "availability") return json({ availability: await requestAvailability(admin) });
     const identity = await twitchIdentity(bearer(request));
     const isOwner = await ownerStatus(admin, identity.id);
     if (action === "session") {

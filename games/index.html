@@ -45,6 +45,13 @@
       </label>
     </section>
 
+    <section class="request-status request-status--loading" id="requestStatus" aria-live="polite">
+      <span class="request-status-light"></span>
+      <div><small>Game Request System</small><strong id="availabilityTitle">Checking availability</strong><p id="availabilityMessage">Connecting to the request service…</p></div>
+      <time id="availabilityCountdown" hidden></time>
+      <a href="staff.html">Staff controls</a>
+    </section>
+
     <section class="catalog-shell">
       <aside class="filters" aria-label="Game system filters">
         <button class="filter active" data-filter="all"><span>All games</span><b id="count-all">0</b></button>
@@ -79,6 +86,7 @@
         <div class="results-head">
           <div><span id="resultCount">0 games</span><small id="activeLabel">All systems</small></div>
           <select id="sortSelect" aria-label="Sort games">
+            <option value="random">Random rotation</option>
             <option value="id">Catalog order</option>
             <option value="title">Title A–Z</option>
             <option value="year-desc">Newest release</option>
@@ -97,7 +105,7 @@
 
   <footer class="site-footer">
     <span>THYTOXICGAMER // GAME REQUEST ARCHIVE</span>
-    <a href="https://thy-toxic-gamer.github.io/Toxic-Command-Center/">Return to Command Center</a>
+    <span><a href="staff.html">Staff &amp; Archives</a> · <a href="https://thy-toxic-gamer.github.io/Toxic-Command-Center/">Return to Command Center</a></span>
   </footer>
 
   <dialog id="requestDialog" class="request-dialog">
