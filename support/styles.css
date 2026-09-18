@@ -137,7 +137,7 @@ footer a { color: #a7b3ac; }
 @media (max-width: 700px) {
   .topbar { position: static; align-items: flex-start; flex-direction: column; }
   nav { justify-content: flex-start; }
-  .hero { min-height: 570px; margin: 12px; padding: 28px 22px; align-items: flex-start; background-position: 67% center; }
+  .hero { min-height: 570px; margin: 12px; padding: 28px 22px; align-items: flex-start; background-position: center, center top; background-size: auto, 100% auto; background-repeat: no-repeat; }
   .hero::after { content: ""; position: absolute; inset: 0; background: linear-gradient(180deg, rgba(3,6,4,.98) 0%, rgba(3,6,4,.86) 50%, rgba(3,6,4,.22) 100%); }
   .hero-copy { width: 100%; z-index: 2; }
   .station-status { z-index: 2; right: 18px; bottom: 18px; }
