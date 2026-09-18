@@ -88,7 +88,7 @@ main { width: min(1540px, 100%); margin: 0 auto; padding: 36px clamp(18px, 4vw, 
   position: relative;
   min-height: 330px;
   display: grid;
-  grid-template-columns: 1fr minmax(280px, 520px);
+  grid-template-columns: 1fr;
   align-items: end;
   gap: 28px;
   margin-bottom: 28px;
@@ -106,7 +106,7 @@ main { width: min(1540px, 100%); margin: 0 auto; padding: 36px clamp(18px, 4vw, 
 h1 { margin: 0; font-size: clamp(2.25rem, 5vw, 4.6rem); letter-spacing: -.045em; line-height: .93; text-transform: uppercase; text-shadow: 0 0 28px rgba(181,255,24,.08); }
 .command-return { display: inline-flex; margin-bottom: 16px; color: #d9ff86; font-size: .72rem; font-weight: 900; letter-spacing: .12em; text-decoration: none; text-transform: uppercase; }
 .command-return:hover { color: #fff; }
-.search-wrap { min-height: 54px; display: flex; align-items: center; gap: 12px; padding: 0 16px; background: #121713; border: 1px solid #344035; border-radius: 14px; transition: border-color .18s, box-shadow .18s; }
+.search-wrap { width: 100%; min-height: 42px; display: flex; align-items: center; gap: 10px; padding: 0 13px; background: #121713; border: 1px solid #344035; border-radius: 10px; transition: border-color .18s, box-shadow .18s; }
 .search-wrap:focus-within { border-color: var(--toxic); box-shadow: 0 0 0 3px rgba(181,255,24,.12); }
 .search-wrap svg { width: 21px; fill: none; stroke: var(--muted); stroke-width: 2; stroke-linecap: round; }
 .search-wrap input { width: 100%; border: 0; outline: 0; background: transparent; color: var(--text); font-size: 1rem; }
@@ -164,8 +164,8 @@ h1 { margin: 0; font-size: clamp(2.25rem, 5vw, 4.6rem); letter-spacing: -.045em;
 .filter.gc { --accent: var(--gc); } .filter.emu-snes { --accent: var(--emu); }
 
 .results { min-width: 0; }
-.results-head { min-height: 58px; display: flex; align-items: center; justify-content: space-between; gap: 20px; padding: 9px 12px; border: 1px solid #303a31; border-left: 3px solid var(--toxic); background: linear-gradient(90deg, rgba(181,255,24,.07), rgba(16,20,17,.92) 18%); }
-.results-head div { display: flex; align-items: baseline; gap: 10px; }
+.results-head { min-height: 62px; display: grid; grid-template-columns: minmax(150px, auto) minmax(240px, 520px) auto; align-items: center; gap: 14px; padding: 9px 12px; border: 1px solid #303a31; border-left: 3px solid var(--toxic); background: linear-gradient(90deg, rgba(181,255,24,.07), rgba(16,20,17,.92) 18%); }
+.results-summary { display: flex; align-items: baseline; gap: 10px; }
 .results-head span { font-weight: 800; }
 .results-head small { color: var(--muted); }
 .results-head select { min-height: 40px; padding: 0 34px 0 12px; border: 1px solid #344035; border-radius: 10px; background: #141915; color: var(--text); }
@@ -243,8 +243,10 @@ h1 { margin: 0; font-size: clamp(2.25rem, 5vw, 4.6rem); letter-spacing: -.045em;
   .command-nav { order: 3; width: 100%; overflow-x: auto; }
   .catalog-status { margin-left: auto; }
   .topbar-account { width: 100%; justify-content: flex-end; }
-  .controls { min-height: 310px; grid-template-columns: 1fr; align-content: end; align-items: start; background-position: 62% center; }
+  .controls { min-height: 310px; align-content: end; align-items: start; background-position: 62% center; }
   .catalog-shell { grid-template-columns: 1fr; }
+  .results-head { grid-template-columns: minmax(0, 1fr) auto; }
+  .results-head .search-wrap { grid-column: 1 / -1; grid-row: 2; }
   .filters { position: static; display: flex; gap: 8px; max-height: none; padding: 10px; overflow-x: auto; }
   .filter-group { display: contents; }
   .filter-group p { display: none; }
@@ -277,8 +279,8 @@ h1 { margin: 0; font-size: clamp(2.25rem, 5vw, 4.6rem); letter-spacing: -.045em;
   .card-detail p { font-size: .76rem; }
   .price-options { grid-template-columns: 1fr; }
   .price-options button { min-height: 72px; }
-  .results-head { align-items: flex-start; }
-  .results-head div { display: grid; gap: 1px; }
+  .results-head { align-items: center; }
+  .results-summary { display: grid; gap: 1px; }
   .site-footer { align-items: flex-start; flex-direction: column; }
 }
 @media (prefers-reduced-motion: reduce) {

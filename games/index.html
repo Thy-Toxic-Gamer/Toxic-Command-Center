@@ -8,7 +8,7 @@
   <title>Game Requests | ThyToxicGamer</title>
   <link rel="icon" type="image/png" href="thytoxicgamer-tab-icon.png">
   <link rel="apple-touch-icon" href="thytoxicgamer-tab-icon.png">
-  <link rel="stylesheet" href="styles.css?v=20260918-2">
+  <link rel="stylesheet" href="styles.css?v=20260918-3">
 </head>
 <body>
   <header class="topbar">
@@ -38,11 +38,6 @@
         <p class="eyebrow">Connected module · Choose the next stream</p>
         <h1 id="catalogTitle">Game Request Archive</h1>
       </div>
-      <label class="search-wrap">
-        <span class="sr-only">Search games</span>
-        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m21 21-4.3-4.3m2.3-5.2A7.5 7.5 0 1 1 4 11.5a7.5 7.5 0 0 1 15 0Z"/></svg>
-        <input id="searchInput" type="search" placeholder="Search by title, ID, or system" autocomplete="off">
-      </label>
     </section>
 
     <section class="request-status request-status--loading" id="requestStatus" aria-live="polite">
@@ -103,7 +98,12 @@
 
       <div class="results">
         <div class="results-head">
-          <div><span id="resultCount">0 games</span><small id="activeLabel">All systems</small></div>
+          <div class="results-summary"><span id="resultCount">0 games</span><small id="activeLabel">All systems</small></div>
+          <label class="search-wrap">
+            <span class="sr-only">Search games</span>
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m21 21-4.3-4.3m2.3-5.2A7.5 7.5 0 1 1 4 11.5a7.5 7.5 0 0 1 15 0Z"/></svg>
+            <input id="searchInput" type="search" placeholder="Search by title, ID, or system" autocomplete="off">
+          </label>
           <select id="sortSelect" aria-label="Sort games">
             <option value="random">Random rotation</option>
             <option value="id">Catalog order</option>
