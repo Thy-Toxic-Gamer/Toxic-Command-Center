@@ -18,6 +18,7 @@ const CHANNELS: Record<string, string> = {
   expired: "1542746875805831289",
 };
 const LOG_CHANNEL_ID = "1543750250097938562";
+const YOUTUBE_LIVE_CHANNEL_ID = "1536919057939439626";
 const DISCORD_ADMINISTRATOR = 1n << 3n;
 const DISCORD_STAFF_PERMISSIONS = (1n << 1n) | (1n << 2n) | (1n << 5n) | (1n << 13n) | (1n << 40n);
 const REQUEST_SELECT = "id,request_number,twitch_display_name,twitch_login,game_id,game_title,game_system,game_cover_url,request_type,base_price,amount_due,is_owner,payment_required,paypal_status,payment_completed_at,status,created_at,updated_at,completed_at,resolution_note,scheduled_for,viewer_change_count,pending_change_game_id,pending_change_game_title,pending_change_game_system,pending_change_cover_url,pending_change_requested_at";
@@ -200,6 +201,80 @@ function youtubeUrl(raw: unknown) {
     if (url.protocol !== "https:" || !(host === "youtube.com" || host.endsWith(".youtube.com") || host === "youtu.be")) return null;
     return url.toString().slice(0, 500);
   } catch { return null; }
+}
+
+function youtubeVideoId(value: unknown) {
+  const match = String(value || "").match(/(?:youtube\.com\/(?:watch\?[^\s#]*v=|live\/|shorts\/)|youtu\.be\/)([A-Za-z0-9_-]{11})/i);
+  return match?.[1] || null;
+}
+
+async function latestYoutubeVodFromDiscord() {
+  const messages = await discordRequest(`/channels/${YOUTUBE_LIVE_CHANNEL_ID}/messages?limit=25`);
+  for (const message of Array.isArray(messages) ? messages : []) {
+    const videoId = youtubeVideoId(JSON.stringify(message));
+    if (!videoId) continue;
+    const embed = Array.isArray(message.embeds) ? message.embeds[0] : null;
+    return {
+      videoId,
+      url: `https://www.youtube.com/watch?v=${encodeURIComponent(videoId)}`,
+      title: String(embed?.title || "Latest YouTube livestream"),
+      publishedAt: typeof message.timestamp === "string" ? message.timestamp : null,
+      thumbnailUrl: String(embed?.image?.url || embed?.thumbnail?.url || ""),
+      source: "discord_live_notification",
+    };
+  }
+  throw new ApiError("No recent YouTube livestream link was found in Discord.", 404);
+}
+
+async function latestYoutubeVod() {
+  const apiKey = Deno.env.get("YOUTUBE_API_KEY") ?? "";
+  if (!apiKey) return await latestYoutubeVodFromDiscord();
+
+  try {
+    let channelId = (Deno.env.get("YOUTUBE_CHANNEL_ID") ?? "").trim();
+    if (!channelId) {
+      const channelParams = new URLSearchParams({
+        part: "id",
+        forHandle: Deno.env.get("YOUTUBE_HANDLE") || "ThyToxicGamer",
+        key: apiKey,
+      });
+      const channelResponse = await fetch(`https://www.googleapis.com/youtube/v3/channels?${channelParams}`);
+      const channelBody = await channelResponse.json().catch(() => null);
+      channelId = String(channelBody?.items?.[0]?.id || "");
+      if (!channelResponse.ok || !channelId) throw new Error("The YouTube channel could not be found.");
+    }
+
+    const searchParams = new URLSearchParams({
+      part: "snippet",
+      channelId,
+      eventType: "completed",
+      type: "video",
+      order: "date",
+      maxResults: "10",
+      key: apiKey,
+    });
+    const response = await fetch(`https://www.googleapis.com/youtube/v3/search?${searchParams}`);
+    const body = await response.json().catch(() => null);
+    if (!response.ok) throw new Error("YouTube could not load the latest completed livestream.");
+    const item = Array.isArray(body?.items)
+      ? body.items.find((candidate: any) => typeof candidate?.id?.videoId === "string")
+      : null;
+    if (!item) throw new Error("No completed YouTube livestream was found.");
+
+    const videoId = String(item.id.videoId);
+    const snippet = item.snippet ?? {};
+    return {
+      videoId,
+      url: `https://www.youtube.com/watch?v=${encodeURIComponent(videoId)}`,
+      title: String(snippet.title || "Latest completed livestream"),
+      publishedAt: typeof snippet.publishedAt === "string" ? snippet.publishedAt : null,
+      thumbnailUrl: String(snippet.thumbnails?.high?.url || snippet.thumbnails?.medium?.url || snippet.thumbnails?.default?.url || ""),
+      source: "youtube_api",
+    };
+  } catch (error) {
+    console.warn("YouTube API VOD lookup failed; using the Discord live notification record.", error);
+    return await latestYoutubeVodFromDiscord();
+  }
 }
 
 function requestEmbed(row: any) {
@@ -499,6 +574,7 @@ Deno.serve(async (request: Request) => {
     if (!staff) throw new ApiError("This account does not have Game Request staff access.", 403);
     switch (body.action) {
       case "dashboard": return json(await dashboard(admin, identity, staff));
+      case "latest_youtube_vod": return json({ vod: await latestYoutubeVod() });
       case "set_availability": return json(await setAvailability(admin, identity, staff, body));
       case "update_request": return json(await updateRequest(admin, identity, staff, body));
       case "change_game": return json(await changeGame(admin, identity, staff, body));
