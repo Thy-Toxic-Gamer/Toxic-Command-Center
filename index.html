@@ -652,13 +652,27 @@
     const liveStatusEndpoint = 'https://ubldjtsjfudogtgxakiq.supabase.co/functions/v1/live-status';
     const livePlatforms = ['twitch', 'youtube', 'kick'];
 
-    function openPanel(panelId) {
+    const panelIds = new Set(panels.map((panel) => panel.id));
+
+    function openPanel(panelId, updateHash = false) {
+      if (!panelIds.has(panelId)) panelId = 'tcc-home';
       tabs.forEach((tab) => tab.setAttribute('aria-selected', String(tab.dataset.tab === panelId)));
       panels.forEach((panel) => { panel.hidden = panel.id !== panelId; });
+
+      if (updateHash && window.location.hash !== '#' + panelId) {
+        window.history.replaceState(null, '', '#' + panelId);
+      }
     }
 
-    tabs.forEach((tab) => tab.addEventListener('click', () => openPanel(tab.dataset.tab)));
-    root.querySelectorAll('[data-open]').forEach((button) => button.addEventListener('click', () => openPanel(button.dataset.open)));
+    function panelFromHash() {
+      const panelId = decodeURIComponent(window.location.hash.slice(1));
+      return panelIds.has(panelId) ? panelId : 'tcc-home';
+    }
+
+    tabs.forEach((tab) => tab.addEventListener('click', () => openPanel(tab.dataset.tab, true)));
+    root.querySelectorAll('[data-open]').forEach((button) => button.addEventListener('click', () => openPanel(button.dataset.open, true)));
+    window.addEventListener('hashchange', () => openPanel(panelFromHash()));
+    openPanel(panelFromHash());
 
     const search = root.querySelector('#tcc-command-search');
     const platformFilters = [...root.querySelectorAll('[data-command-platform]')];
