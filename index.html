@@ -506,7 +506,13 @@
     #toxic-command-center-concept .tcc-flow { grid-template-columns: 1fr; }
     #toxic-command-center-concept .tcc-section-head { align-items: stretch; flex-direction: column; }
     #toxic-command-center-concept .tcc-hero { padding: 28px 20px; background-position: center, center top; background-size: auto, 100% auto; background-repeat: no-repeat; }
-    #toxic-command-center-concept .tcc-section-banner { min-height: 220px; padding: 24px 20px; }
+    #toxic-command-center-concept .tcc-section-banner {
+      min-height: clamp(220px, 56.25vw, 315px);
+      padding: 24px 20px;
+      background-position: center, center;
+      background-size: auto, contain;
+      background-repeat: no-repeat, no-repeat;
+    }
     #toxic-command-center-concept .tcc-command-tools .tcc-search { width: 100%; }
     #toxic-command-center-concept .tcc-console-panel .tcc-item-list { grid-template-columns: 1fr; }
     #toxic-command-center-concept .tcc-live-state { margin-left: 0 !important; }
