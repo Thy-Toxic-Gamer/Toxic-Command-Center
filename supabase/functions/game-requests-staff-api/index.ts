@@ -20,7 +20,7 @@ const CHANNELS: Record<string, string> = {
 const LOG_CHANNEL_ID = "1543750250097938562";
 const DISCORD_ADMINISTRATOR = 1n << 3n;
 const DISCORD_STAFF_PERMISSIONS = (1n << 1n) | (1n << 2n) | (1n << 5n) | (1n << 13n) | (1n << 40n);
-const REQUEST_SELECT = "id,request_number,twitch_display_name,twitch_login,game_id,game_title,game_system,request_type,base_price,amount_due,is_owner,payment_required,status,created_at,updated_at,completed_at,resolution_note,scheduled_for";
+const REQUEST_SELECT = "id,request_number,twitch_display_name,twitch_login,game_id,game_title,game_system,request_type,base_price,amount_due,is_owner,payment_required,paypal_status,payment_completed_at,status,created_at,updated_at,completed_at,resolution_note,scheduled_for";
 const CORS_HEADERS = {
   "Access-Control-Allow-Origin": ALLOWED_ORIGIN,
   "Access-Control-Allow-Headers": "authorization, apikey, content-type, x-game-platform",
@@ -293,6 +293,9 @@ async function updateRequest(admin: any, identity: Identity, staff: any, body: a
   const { data: existing, error: existingError } = await admin.from("game_requests").select("*").eq("id", id).maybeSingle();
   if (existingError || !existing) throw new ApiError("Request not found.", 404);
   if (FINAL_STATUSES.includes(existing.status)) throw new ApiError("Archived requests cannot be changed.", 409);
+  if (!existing.is_owner && ["approved", "scheduled", "completed"].includes(status) && existing.paypal_status !== "COMPLETED") {
+    throw new ApiError("Payment must be verified before this request can be approved, scheduled, or completed.", 409);
+  }
 
   const now = new Date();
   let scheduledFor: string | null = null;

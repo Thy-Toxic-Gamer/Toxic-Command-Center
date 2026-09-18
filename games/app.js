@@ -38,6 +38,12 @@
   const availabilityTitle = document.querySelector("#availabilityTitle");
   const availabilityMessage = document.querySelector("#availabilityMessage");
   const availabilityCountdown = document.querySelector("#availabilityCountdown");
+  const viewerRequestPanel = document.querySelector("#viewerRequestPanel");
+  const viewerRequestTitle = document.querySelector("#viewerRequestTitle");
+  const viewerRequestMeta = document.querySelector("#viewerRequestMeta");
+  const viewerRequestAmount = document.querySelector("#viewerRequestAmount");
+  const viewerRequestPay = document.querySelector("#viewerRequestPay");
+  const viewerRequestMessage = document.querySelector("#viewerRequestMessage");
   const pageSize = 96;
   let activeFilter = "all";
   let viewer = null;
@@ -46,6 +52,8 @@
   let requestComplete = false;
   let availabilityState = { open: false, mode: "loading", message: "Connecting to the request service…", reopensAt: null };
   let countdownTimer = null;
+  let viewerRequest = null;
+  let paymentMode = null;
 
   const colors = {
     PC: "pc", "Nintendo Switch": "switch", "Nintendo Switch 2": "switch",
@@ -173,8 +181,73 @@
       viewerAvatar.alt = "";
       viewerName.textContent = "";
       viewerRole.textContent = "Twitch viewer";
+      viewerRequest = null;
+      viewerRequestPanel.hidden = true;
     }
     updateRequestDialog();
+  }
+
+  function statusLabel(value) {
+    return String(value || "pending").replaceAll("_", " ").replace(/\b\w/g, (letter) => letter.toUpperCase());
+  }
+
+  function renderViewerRequest(message = "", isError = false) {
+    if (!viewer?.user || !viewerRequest) {
+      viewerRequestPanel.hidden = true;
+      return;
+    }
+    const request = viewerRequest;
+    viewerRequestPanel.hidden = false;
+    viewerRequestPanel.classList.toggle("is-paid", request.paypalStatus === "COMPLETED" || ["approved", "scheduled", "completed"].includes(request.status));
+    viewerRequestPanel.classList.toggle("is-error", isError);
+    viewerRequestTitle.textContent = request.gameTitle;
+    viewerRequestMeta.textContent = `${request.code} · ${request.gameSystem} · ${request.requestType} · ${statusLabel(request.status)}`;
+    viewerRequestAmount.textContent = request.paymentRequired ? `$${Number(request.amountDue).toFixed(2)} ${request.currency}` : request.paypalStatus === "COMPLETED" ? "Payment verified" : "$0 · Owner";
+    viewerRequestPay.hidden = request.status !== "awaiting_payment" || !request.paymentRequired || request.paypalStatus === "COMPLETED";
+    viewerRequestPay.disabled = false;
+    viewerRequestPay.textContent = paymentMode === "sandbox" ? "Test with PayPal Sandbox" : "Pay securely with PayPal";
+    if (message) viewerRequestMessage.textContent = message;
+    else if (request.status === "pending") viewerRequestMessage.textContent = "Staff is reviewing this request. Payment will open only after staff moves it to Awaiting Payment.";
+    else if (request.status === "awaiting_payment") viewerRequestMessage.textContent = paymentMode === "sandbox" ? "Checkout is connected in PayPal Sandbox test mode. No live money will be charged." : "Your request is ready for secure PayPal checkout.";
+    else if (request.paypalStatus === "COMPLETED") viewerRequestMessage.textContent = "PayPal verified the payment and the request is approved.";
+    else if (request.status === "scheduled") viewerRequestMessage.textContent = request.scheduledFor ? `Scheduled for ${new Intl.DateTimeFormat(undefined, { dateStyle: "medium", timeStyle: "short" }).format(new Date(request.scheduledFor))}.` : "This request is scheduled.";
+    else viewerRequestMessage.textContent = `This request is ${statusLabel(request.status).toLowerCase()}.`;
+  }
+
+  function cleanPayPalQuery() {
+    const url = new URL(location.href);
+    ["paypal", "request", "token", "PayerID"].forEach((key) => url.searchParams.delete(key));
+    history.replaceState(null, "", `${url.pathname}${url.search}${url.hash}`);
+  }
+
+  async function loadViewerRequest(handleReturn = false) {
+    if (!viewer?.user) return;
+    try {
+      const data = await api("my_request");
+      viewerRequest = data.request;
+      paymentMode = data.paymentMode;
+      renderViewerRequest();
+      if (!handleReturn) return;
+      const params = new URLSearchParams(location.search);
+      const result = params.get("paypal");
+      const requestId = params.get("request");
+      const orderId = params.get("token");
+      if (result === "cancelled") {
+        renderViewerRequest("PayPal checkout was cancelled. Your request is still saved and you can try again.");
+        cleanPayPalQuery();
+      } else if (result === "approved" && requestId && orderId) {
+        renderViewerRequest("Confirming the PayPal payment…");
+        const captured = await api("capture_payment", { requestId, orderId });
+        viewerRequest = captured.request;
+        renderViewerRequest("Payment verified. Your request is approved and Discord has been updated.");
+        cleanPayPalQuery();
+        await loadAvailability();
+      }
+    } catch (error) {
+      renderViewerRequest(error.message, true);
+      if (handleReturn && new URLSearchParams(location.search).has("paypal")) cleanPayPalQuery();
+      if (error.status !== 401) console.error(error);
+    }
   }
 
   async function loadViewer() {
@@ -195,6 +268,7 @@
     }
     try {
       setViewer(await api("session"));
+      await loadViewerRequest(true);
       const pendingId = sessionStorage.getItem(PENDING_GAME_KEY);
       if (pendingId) {
         sessionStorage.removeItem(PENDING_GAME_KEY);
@@ -387,6 +461,7 @@
         : `${result.code} was submitted for review. Payment will open only after approval.`);
       updateRequestDialog();
       loadAvailability();
+      loadViewerRequest();
     } catch (error) {
       setNotice("error", error.message);
       submitRequest.disabled = false;
@@ -400,11 +475,33 @@
     sessionStorage.removeItem(TOKEN_KEY);
     setViewer(null);
   });
+  viewerRequestPay.addEventListener("click", async () => {
+    if (!viewerRequest) return;
+    renderViewerRequest("Creating a secure PayPal checkout…");
+    viewerRequestPay.disabled = true;
+    viewerRequestPay.textContent = "Opening PayPal…";
+    try {
+      const data = await api("create_payment", { requestId: viewerRequest.id });
+      if (data.completed) {
+        viewerRequest = data.request;
+        renderViewerRequest("This payment is already verified.");
+        return;
+      }
+      location.assign(data.approvalUrl);
+    } catch (error) {
+      viewerRequestPay.disabled = false;
+      renderViewerRequest(error.message, true);
+    }
+  });
 
   updateCounts();
   updateAvailabilityBanner();
   render();
   loadAvailability();
   loadViewer();
-  setInterval(() => { if (document.visibilityState === "visible") loadAvailability(); }, 30000);
+  setInterval(() => {
+    if (document.visibilityState !== "visible") return;
+    loadAvailability();
+    if (viewer?.user) loadViewerRequest();
+  }, 30000);
 })();

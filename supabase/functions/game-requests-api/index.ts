@@ -3,8 +3,14 @@ import { createClient } from "npm:@supabase/supabase-js@2.95.0";
 const TWITCH_CLIENT_ID = "ht2kbpz12tpv060f2259jn9recng0x";
 const ALLOWED_ORIGIN = "https://thy-toxic-gamer.github.io";
 const PENDING_CHANNEL_ID = "1542688040353275994";
+const AWAITING_PAYMENT_CHANNEL_ID = "1542727353602543616";
 const APPROVED_CHANNEL_ID = "1542690394255532052";
 const LOG_CHANNEL_ID = "1543750250097938562";
+const GAME_PAGE = "https://thy-toxic-gamer.github.io/Toxic-Command-Center/games/";
+const PAYPAL_CLIENT_ID = Deno.env.get("PAYPAL_CLIENT_ID") ?? "";
+const PAYPAL_CLIENT_SECRET = Deno.env.get("PAYPAL_CLIENT_SECRET") ?? "";
+const PAYPAL_ENVIRONMENT = (Deno.env.get("PAYPAL_ENVIRONMENT") ?? "sandbox").toLowerCase();
+const PAYPAL_BASE = PAYPAL_ENVIRONMENT === "live" ? "https://api-m.paypal.com" : "https://api-m.sandbox.paypal.com";
 const PRICE_BY_PLAN: Record<string, number> = { Play: 5, Speed: 10, "100%": 15 };
 const ACTIVE_STATUSES = ["pending", "awaiting_payment", "approved", "scheduled"];
 const CORS_HEADERS = {
@@ -230,6 +236,224 @@ async function sendDiscordCreationLog(requestRow: any) {
   if (!response.ok) throw new Error(`Discord rejected the request log (${response.status}).`);
 }
 
+async function sendDiscordPaymentLog(requestRow: any) {
+  const token = Deno.env.get("DISCORD_BOT_TOKEN");
+  if (!token) throw new Error("Discord bot connection is unavailable.");
+  const requestCode = `GR-${String(requestRow.request_number).padStart(6, "0")}`;
+  const response = await fetch(`https://discord.com/api/v10/channels/${LOG_CHANNEL_ID}/messages`, {
+    method: "POST",
+    headers: { Authorization: `Bot ${token}`, "Content-Type": "application/json" },
+    body: JSON.stringify({
+      allowed_mentions: { parse: [] },
+      embeds: [{
+        title: "Game Request Payment Verified",
+        color: 0xb5ff18,
+        fields: [
+          { name: "Request", value: `${requestCode} · ${requestRow.game_title}`, inline: false },
+          { name: "Requester", value: requestRow.twitch_display_name, inline: true },
+          { name: "Amount", value: `$${Number(requestRow.amount_due).toFixed(2)} USD`, inline: true },
+          { name: "Status", value: "Approved", inline: true },
+        ],
+        timestamp: new Date().toISOString(),
+      }],
+    }),
+  });
+  if (!response.ok) throw new Error(`Discord rejected the payment log (${response.status}).`);
+}
+
+function publicRequest(row: any) {
+  return {
+    id: row.id,
+    code: `GR-${String(row.request_number).padStart(6, "0")}`,
+    gameTitle: row.game_title,
+    gameSystem: row.game_system,
+    requestType: row.request_type,
+    status: row.status,
+    amountDue: Number(row.amount_due),
+    currency: row.payment_currency || "USD",
+    paymentRequired: Boolean(row.payment_required),
+    paypalStatus: row.paypal_status || null,
+    scheduledFor: row.scheduled_for || null,
+    createdAt: row.created_at,
+  };
+}
+
+function requirePayPal() {
+  if (!PAYPAL_CLIENT_ID || !PAYPAL_CLIENT_SECRET) throw new ApiError("PayPal checkout is not connected yet.", 503);
+}
+
+async function getPayPalAccessToken() {
+  const credentials = btoa(`${PAYPAL_CLIENT_ID}:${PAYPAL_CLIENT_SECRET}`);
+  const response = await fetch(`${PAYPAL_BASE}/v1/oauth2/token`, {
+    method: "POST",
+    headers: { Authorization: `Basic ${credentials}`, "Content-Type": "application/x-www-form-urlencoded" },
+    body: "grant_type=client_credentials",
+  });
+  const body = await response.json().catch(() => ({}));
+  if (!response.ok || !body.access_token) throw new ApiError("PayPal authentication failed. Please try again shortly.", 502);
+  return String(body.access_token);
+}
+
+async function paypalRequest(path: string, accessToken: string, init: RequestInit) {
+  const response = await fetch(`${PAYPAL_BASE}${path}`, {
+    ...init,
+    headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json", ...(init.headers || {}) },
+  });
+  return { ok: response.ok, status: response.status, body: await response.json().catch(() => ({})) };
+}
+
+function completedCapture(order: any) {
+  const captures = order?.purchase_units?.flatMap((unit: any) => unit?.payments?.captures ?? []) ?? [];
+  return captures.find((capture: any) => capture.status === "COMPLETED") ?? null;
+}
+
+async function findOwnedRequest(admin: any, requestId: string, identity: TwitchIdentity) {
+  if (!/^[0-9a-f-]{36}$/i.test(requestId)) throw new ApiError("Game request not found.", 404);
+  const { data, error } = await admin.from("game_requests").select("*").eq("id", requestId).eq("twitch_user_id", identity.id).maybeSingle();
+  if (error || !data) throw new ApiError("Game request not found.", 404);
+  return data;
+}
+
+async function myRequest(admin: any, identity: TwitchIdentity) {
+  const { data, error } = await admin.from("game_requests").select("*").eq("twitch_user_id", identity.id).order("created_at", { ascending: false }).limit(1).maybeSingle();
+  if (error) throw new ApiError("Your request could not be loaded.", 500);
+  return { request: data ? publicRequest(data) : null, paymentMode: PAYPAL_ENVIRONMENT };
+}
+
+async function createPayment(admin: any, identity: TwitchIdentity, body: any) {
+  requirePayPal();
+  const row = await findOwnedRequest(admin, String(body.requestId || ""), identity);
+  if (row.is_owner || Number(row.amount_due) === 0) throw new ApiError("Owner requests do not require payment.", 409);
+  if (row.paypal_status === "COMPLETED") return { request: publicRequest(row), completed: true };
+  if (row.status !== "awaiting_payment") throw new ApiError("Payment is not open for this request yet.", 409);
+  if (Number(row.payment_attempts || 0) >= 5) throw new ApiError("Too many checkout attempts. Ask staff to review this request.", 429);
+
+  const accessToken = await getPayPalAccessToken();
+  if (row.paypal_order_id) {
+    const existing = await paypalRequest(`/v2/checkout/orders/${encodeURIComponent(row.paypal_order_id)}`, accessToken, { method: "GET" });
+    const approvalUrl = existing.body?.links?.find((link: any) => link.rel === "payer-action" || link.rel === "approve")?.href;
+    if (existing.ok && approvalUrl) return { requestId: row.id, approvalUrl, reused: true };
+  }
+
+  const requestCode = `GR-${String(row.request_number).padStart(6, "0")}`;
+  const response = await paypalRequest("/v2/checkout/orders", accessToken, {
+    method: "POST",
+    headers: { "PayPal-Request-Id": `game-request-${row.id}-${Number(row.payment_attempts || 0) + 1}`, Prefer: "return=representation" },
+    body: JSON.stringify({
+      intent: "CAPTURE",
+      purchase_units: [{
+        reference_id: row.id,
+        custom_id: `game-request:${row.id}`,
+        description: `${requestCode} · ${row.game_title} · ${row.request_type}`.slice(0, 127),
+        amount: { currency_code: "USD", value: Number(row.amount_due).toFixed(2) },
+      }],
+      payment_source: { paypal: { experience_context: {
+        brand_name: "ThyToxicGamer Game Requests",
+        user_action: "PAY_NOW",
+        shipping_preference: "NO_SHIPPING",
+        return_url: `${GAME_PAGE}?paypal=approved&request=${encodeURIComponent(row.id)}`,
+        cancel_url: `${GAME_PAGE}?paypal=cancelled&request=${encodeURIComponent(row.id)}`,
+      } } },
+    }),
+  });
+  const approvalUrl = response.body?.links?.find((link: any) => link.rel === "payer-action" || link.rel === "approve")?.href;
+  if (!response.ok || !response.body?.id || !approvalUrl) throw new ApiError("PayPal could not open checkout. Please try again.", 502);
+  await admin.from("game_requests").update({
+    paypal_order_id: response.body.id,
+    paypal_status: response.body.status || "CREATED",
+    payment_attempts: Number(row.payment_attempts || 0) + 1,
+    payment_error: null,
+    updated_at: new Date().toISOString(),
+  }).eq("id", row.id);
+  await admin.from("game_request_events").insert({ request_id: row.id, event_type: "paypal_order_created", actor_twitch_user_id: identity.id, details: { order_id: response.body.id, mode: PAYPAL_ENVIRONMENT } });
+  return { requestId: row.id, approvalUrl };
+}
+
+async function movePaidRequestToApproved(admin: any, row: any) {
+  const token = Deno.env.get("DISCORD_BOT_TOKEN");
+  if (!token) return;
+  const requestCode = `GR-${String(row.request_number).padStart(6, "0")}`;
+  const payload = {
+    allowed_mentions: { parse: [] },
+    embeds: [{
+      title: "Game Request Approved · Payment Verified",
+      color: 0xb5ff18,
+      fields: [
+        { name: "Game", value: `${row.game_title}\n${row.game_system}`, inline: false },
+        { name: "Requester", value: row.twitch_display_name, inline: true },
+        { name: "Request Type", value: row.request_type, inline: true },
+        { name: "Verified Amount", value: `$${Number(row.amount_due).toFixed(2)} USD`, inline: true },
+        { name: "Status", value: "Approved", inline: true },
+      ],
+      footer: { text: `${requestCode} · PayPal verified` },
+      timestamp: new Date().toISOString(),
+    }],
+  };
+  const response = await fetch(`https://discord.com/api/v10/channels/${APPROVED_CHANNEL_ID}/messages`, {
+    method: "POST",
+    headers: { Authorization: `Bot ${token}`, "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  const created = await response.json().catch(() => ({}));
+  if (!response.ok || !created.id) throw new Error(`Discord returned ${response.status}.`);
+  const oldChannel = row.discord_channel_id;
+  const oldMessage = row.discord_message_id;
+  await admin.from("game_requests").update({ discord_channel_id: APPROVED_CHANNEL_ID, discord_message_id: String(created.id), discord_last_error: null }).eq("id", row.id);
+  if (oldChannel && oldMessage) await fetch(`https://discord.com/api/v10/channels/${oldChannel}/messages/${oldMessage}`, { method: "DELETE", headers: { Authorization: `Bot ${token}` } }).catch(() => null);
+  await sendDiscordPaymentLog({ ...row, status: "approved" }).catch(() => null);
+}
+
+async function completeGamePayment(admin: any, row: any, capture: any) {
+  const amount = Number(capture?.amount?.value);
+  const currency = String(capture?.amount?.currency_code || "");
+  if (!Number.isFinite(amount) || amount !== Number(row.amount_due) || currency !== "USD") {
+    await admin.from("game_requests").update({ payment_error: "PayPal amount or currency mismatch.", paypal_status: "REVIEW_REQUIRED" }).eq("id", row.id);
+    throw new ApiError("The payment amount needs staff review. Your request was not automatically approved.", 409);
+  }
+  if (row.paypal_status === "COMPLETED") return row;
+  const now = new Date().toISOString();
+  const { data: updated, error } = await admin.from("game_requests").update({
+    status: "approved",
+    payment_required: false,
+    paypal_status: "COMPLETED",
+    paypal_capture_id: capture.id,
+    payment_completed_at: now,
+    payment_error: null,
+    updated_at: now,
+  }).eq("id", row.id).eq("status", "awaiting_payment").select("*").maybeSingle();
+  if (error) throw new ApiError("PayPal confirmed payment, but the request needs staff review.", 500);
+  if (!updated) {
+    const { data: current, error: currentError } = await admin.from("game_requests").select("*").eq("id", row.id).maybeSingle();
+    if (currentError || !current) throw new ApiError("PayPal confirmed payment, but the request needs staff review.", 500);
+    return current;
+  }
+  await admin.from("game_request_events").insert({ request_id: row.id, event_type: "payment_completed", actor_twitch_user_id: row.twitch_user_id, details: { capture_id: capture.id, amount, currency } });
+  try { await movePaidRequestToApproved(admin, updated); }
+  catch (discordError) {
+    const message = discordError instanceof Error ? discordError.message : "Discord routing failed.";
+    await admin.from("game_requests").update({ discord_last_error: message.slice(0, 1000) }).eq("id", row.id);
+  }
+  return updated;
+}
+
+async function capturePayment(admin: any, identity: TwitchIdentity, body: any) {
+  requirePayPal();
+  const orderId = String(body.orderId || "");
+  const row = await findOwnedRequest(admin, String(body.requestId || ""), identity);
+  if (!orderId || row.paypal_order_id !== orderId) throw new ApiError("The PayPal order does not match this request.", 403);
+  if (row.paypal_status === "COMPLETED") return { request: publicRequest(row) };
+  const accessToken = await getPayPalAccessToken();
+  let response = await paypalRequest(`/v2/checkout/orders/${encodeURIComponent(orderId)}/capture`, accessToken, {
+    method: "POST",
+    headers: { "PayPal-Request-Id": `capture-game-request-${row.id}` },
+    body: "{}",
+  });
+  if (!response.ok && response.status === 422) response = await paypalRequest(`/v2/checkout/orders/${encodeURIComponent(orderId)}`, accessToken, { method: "GET" });
+  const capture = completedCapture(response.body);
+  if (!response.ok || !capture) throw new ApiError("PayPal has not confirmed the payment yet. You can safely try confirmation again.", 409);
+  return { request: publicRequest(await completeGamePayment(admin, row, capture)) };
+}
+
 async function createRequest(admin: any, identity: TwitchIdentity, isOwner: boolean, body: any) {
   const gameId = String(body.gameId ?? "").trim();
   const plan = String(body.plan ?? "").trim();
@@ -340,7 +564,7 @@ Deno.serve(async (request: Request) => {
     const admin = adminClient();
     if (action === "health") {
       const { count, error } = await admin.from("game_catalog").select("id", { count: "exact", head: true });
-      return json({ ok: !error, catalogCount: count ?? 0 });
+      return json({ ok: !error, catalogCount: count ?? 0, paymentMode: PAYPAL_ENVIRONMENT, paypalConfigured: Boolean(PAYPAL_CLIENT_ID && PAYPAL_CLIENT_SECRET) });
     }
     if (action === "availability") return json({ availability: await requestAvailability(admin) });
     const identity = await twitchIdentity(bearer(request));
@@ -351,6 +575,9 @@ Deno.serve(async (request: Request) => {
         isOwner,
       });
     }
+    if (action === "my_request") return json(await myRequest(admin, identity));
+    if (action === "create_payment") return json(await createPayment(admin, identity, body));
+    if (action === "capture_payment") return json(await capturePayment(admin, identity, body));
     if (action === "submit") return json(await createRequest(admin, identity, isOwner, body), 201);
     throw new ApiError("Unknown action.", 404);
   } catch (error) {

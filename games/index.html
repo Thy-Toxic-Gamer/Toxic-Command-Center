@@ -52,6 +52,19 @@
       <a href="staff.html">Staff controls</a>
     </section>
 
+    <section class="viewer-request-panel" id="viewerRequestPanel" aria-live="polite" hidden>
+      <div>
+        <small>Your latest request</small>
+        <strong id="viewerRequestTitle">Loading request</strong>
+        <p id="viewerRequestMeta"></p>
+      </div>
+      <div class="viewer-request-payment">
+        <span id="viewerRequestAmount"></span>
+        <button id="viewerRequestPay" type="button" hidden>Pay securely with PayPal</button>
+      </div>
+      <p class="viewer-request-message" id="viewerRequestMessage"></p>
+    </section>
+
     <section class="catalog-shell">
       <aside class="filters" aria-label="Game system filters">
         <button class="filter active" data-filter="all"><span>All games</span><b id="count-all">0</b></button>

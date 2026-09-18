@@ -12,6 +12,8 @@ const PAYPAL_ENVIRONMENT = (Deno.env.get("PAYPAL_ENVIRONMENT") ?? "sandbox").toL
 const DISCORD_BOT_TOKEN = Deno.env.get("DISCORD_BOT_TOKEN") ?? "";
 const DONATIONS_CHANNEL_ID = Deno.env.get("DONATIONS_CHANNEL_ID") ?? "";
 const STREAMERBOT_SHARED_SECRET = Deno.env.get("STREAMERBOT_SHARED_SECRET") ?? "";
+const GAME_APPROVED_CHANNEL_ID = "1542690394255532052";
+const GAME_LOG_CHANNEL_ID = "1543750250097938562";
 
 const PAYPAL_BASE = PAYPAL_ENVIRONMENT === "live"
   ? "https://api-m.paypal.com"
@@ -40,6 +42,24 @@ type Donation = {
   paypal_order_id: string | null;
   paypal_capture_id: string | null;
   discord_delivery_status: string;
+};
+
+type GameRequest = {
+  id: string;
+  request_number: number;
+  twitch_user_id: string;
+  twitch_display_name: string;
+  game_title: string;
+  game_system: string;
+  request_type: string;
+  amount_due: number | string;
+  payment_currency: string;
+  paypal_order_id: string | null;
+  paypal_capture_id: string | null;
+  paypal_status: string | null;
+  status: string;
+  discord_channel_id: string | null;
+  discord_message_id: string | null;
 };
 
 Deno.serve(async (request) => {
@@ -294,19 +314,27 @@ async function handlePayPalWebhook(request: Request) {
       donation = result.data as Donation | null;
     }
 
-    if (!donation) {
-      await finishWebhookEvent(eventId, "ignored", null);
-      return json({ ok: true, ignored: true }, 200, request);
-    }
-
-    if (eventType === "PAYMENT.CAPTURE.COMPLETED" && donation.status !== "completed") {
-      await completeDonation(donation, resource);
-    } else if (eventType === "PAYMENT.CAPTURE.REFUNDED") {
-      await updatePaymentState(donation.id, "refunded", "payment_refunded", captureId);
-    } else if (eventType === "PAYMENT.CAPTURE.REVERSED") {
-      await updatePaymentState(donation.id, "reversed", "payment_reversed", captureId);
-    } else if (eventType === "PAYMENT.CAPTURE.DENIED") {
-      await updatePaymentState(donation.id, "denied", "payment_denied", captureId);
+    if (donation) {
+      if (eventType === "PAYMENT.CAPTURE.COMPLETED" && donation.status !== "completed") {
+        await completeDonation(donation, resource);
+      } else if (eventType === "PAYMENT.CAPTURE.REFUNDED") {
+        await updatePaymentState(donation.id, "refunded", "payment_refunded", captureId);
+      } else if (eventType === "PAYMENT.CAPTURE.REVERSED") {
+        await updatePaymentState(donation.id, "reversed", "payment_reversed", captureId);
+      } else if (eventType === "PAYMENT.CAPTURE.DENIED") {
+        await updatePaymentState(donation.id, "denied", "payment_denied", captureId);
+      }
+    } else {
+      const gameRequest = await findGameRequestPayment(orderId, captureId);
+      if (!gameRequest) {
+        await finishWebhookEvent(eventId, "ignored", null);
+        return json({ ok: true, ignored: true }, 200, request);
+      }
+      if (eventType === "PAYMENT.CAPTURE.COMPLETED") {
+        await completeGameRequestPayment(gameRequest, resource);
+      } else if (["PAYMENT.CAPTURE.REFUNDED", "PAYMENT.CAPTURE.REVERSED", "PAYMENT.CAPTURE.DENIED"].includes(eventType)) {
+        await updateGameRequestPaymentState(gameRequest, eventType, captureId);
+      }
     }
 
     await finishWebhookEvent(eventId, "processed", null);
@@ -315,6 +343,96 @@ async function handlePayPalWebhook(request: Request) {
     await finishWebhookEvent(eventId, "failed", error instanceof Error ? error.message.slice(0, 1000) : "Unknown processing error");
     throw error;
   }
+}
+
+async function findGameRequestPayment(orderId: string | null, captureId: string | null): Promise<GameRequest | null> {
+  if (orderId) {
+    const result = await db.from("game_requests").select("*").eq("paypal_order_id", orderId).maybeSingle();
+    if (result.error) throw new ApiError("game_request_lookup_failed", "The game request payment could not be checked.", 500);
+    if (result.data) return result.data as GameRequest;
+  }
+  if (captureId) {
+    const result = await db.from("game_requests").select("*").eq("paypal_capture_id", captureId).maybeSingle();
+    if (result.error) throw new ApiError("game_request_lookup_failed", "The game request payment could not be checked.", 500);
+    if (result.data) return result.data as GameRequest;
+  }
+  return null;
+}
+
+async function completeGameRequestPayment(gameRequest: GameRequest, capture: Record<string, any>) {
+  const capturedAmount = money(capture.amount?.value);
+  const capturedCurrency = String(capture.amount?.currency_code ?? "");
+  if (capturedAmount !== Number(gameRequest.amount_due) || capturedCurrency !== (gameRequest.payment_currency || "USD")) {
+    await db.from("game_requests").update({ paypal_status: "REVIEW_REQUIRED", payment_error: "PayPal amount or currency mismatch.", updated_at: new Date().toISOString() }).eq("id", gameRequest.id);
+    await addGameRequestEvent(gameRequest.id, "payment_review_required", { captured_amount: capturedAmount, captured_currency: capturedCurrency });
+    throw new ApiError("game_request_amount_mismatch", "The game request payment amount needs staff review.", 409);
+  }
+  if (gameRequest.paypal_status === "COMPLETED") return;
+  const now = new Date().toISOString();
+  const { data: updated, error } = await db.from("game_requests").update({
+    status: "approved",
+    payment_required: false,
+    paypal_status: "COMPLETED",
+    paypal_capture_id: capture.id,
+    payment_completed_at: now,
+    payment_error: null,
+    updated_at: now,
+  }).eq("id", gameRequest.id).eq("status", "awaiting_payment").select("*").maybeSingle();
+  if (error) throw new ApiError("game_request_payment_record_failed", "Payment completed, but the game request needs staff review.", 500);
+  if (!updated) return;
+  await addGameRequestEvent(gameRequest.id, "payment_completed", { capture_id: capture.id, amount: capturedAmount, currency: capturedCurrency, source: "paypal_webhook" });
+  await routePaidGameRequest(updated as GameRequest);
+}
+
+async function routePaidGameRequest(gameRequest: GameRequest) {
+  if (!DISCORD_BOT_TOKEN) return;
+  const code = `GR-${String(gameRequest.request_number).padStart(6, "0")}`;
+  const embed = {
+    title: "Game Request Approved · Payment Verified",
+    color: 0xb5ff18,
+    fields: [
+      { name: "Game", value: `${gameRequest.game_title}\n${gameRequest.game_system}`, inline: false },
+      { name: "Requester", value: gameRequest.twitch_display_name, inline: true },
+      { name: "Request Type", value: gameRequest.request_type, inline: true },
+      { name: "Verified Amount", value: `$${Number(gameRequest.amount_due).toFixed(2)} USD`, inline: true },
+      { name: "Status", value: "Approved", inline: true },
+    ],
+    footer: { text: `${code} · PayPal verified` },
+    timestamp: new Date().toISOString(),
+  };
+  try {
+    const response = await fetch(`https://discord.com/api/v10/channels/${GAME_APPROVED_CHANNEL_ID}/messages`, {
+      method: "POST",
+      headers: { Authorization: `Bot ${DISCORD_BOT_TOKEN}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ allowed_mentions: { parse: [] }, embeds: [embed] }),
+    });
+    const created = await response.json().catch(() => ({}));
+    if (!response.ok || !created.id) throw new Error(`Discord returned ${response.status}.`);
+    await db.from("game_requests").update({ discord_channel_id: GAME_APPROVED_CHANNEL_ID, discord_message_id: String(created.id), discord_last_error: null }).eq("id", gameRequest.id);
+    if (gameRequest.discord_channel_id && gameRequest.discord_message_id) {
+      await fetch(`https://discord.com/api/v10/channels/${gameRequest.discord_channel_id}/messages/${gameRequest.discord_message_id}`, { method: "DELETE", headers: { Authorization: `Bot ${DISCORD_BOT_TOKEN}` } }).catch(() => null);
+    }
+    await fetch(`https://discord.com/api/v10/channels/${GAME_LOG_CHANNEL_ID}/messages`, {
+      method: "POST",
+      headers: { Authorization: `Bot ${DISCORD_BOT_TOKEN}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ allowed_mentions: { parse: [] }, embeds: [{ title: "Game Request Payment Verified", color: 0xb5ff18, fields: [{ name: "Request", value: `${code} · ${gameRequest.game_title}`, inline: false }, { name: "Requester", value: gameRequest.twitch_display_name, inline: true }, { name: "Amount", value: `$${Number(gameRequest.amount_due).toFixed(2)} USD`, inline: true }], timestamp: new Date().toISOString() }] }),
+    }).catch(() => null);
+  } catch (error) {
+    const message = error instanceof Error ? error.message.slice(0, 1000) : "Discord routing failed.";
+    await db.from("game_requests").update({ discord_last_error: message }).eq("id", gameRequest.id);
+  }
+}
+
+async function updateGameRequestPaymentState(gameRequest: GameRequest, eventType: string, captureId: string | null) {
+  const status = eventType.endsWith("REFUNDED") ? "REFUNDED" : eventType.endsWith("REVERSED") ? "REVERSED" : "DENIED";
+  const message = `PayPal marked this game request payment ${status.toLowerCase()}.`;
+  await db.from("game_requests").update({ paypal_status: status, payment_error: message, updated_at: new Date().toISOString() }).eq("id", gameRequest.id);
+  await addGameRequestEvent(gameRequest.id, `payment_${status.toLowerCase()}`, { capture_id: captureId, source: "paypal_webhook" });
+}
+
+async function addGameRequestEvent(requestId: string, eventType: string, details: Record<string, unknown>) {
+  const { error } = await db.from("game_request_events").insert({ request_id: requestId, event_type: eventType, details });
+  if (error) console.error("Game request event insert failed", error.message);
 }
 
 async function nextAlert(request: Request) {

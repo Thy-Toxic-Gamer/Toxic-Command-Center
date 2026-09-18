@@ -66,6 +66,13 @@ create table if not exists public.game_requests (
   amount_due numeric(8,2) not null check (amount_due >= 0),
   is_owner boolean not null default false,
   payment_required boolean not null default true,
+  payment_currency text not null default 'USD' check (payment_currency = 'USD'),
+  paypal_order_id text,
+  paypal_capture_id text,
+  paypal_status text,
+  payment_completed_at timestamptz,
+  payment_error text,
+  payment_attempts integer not null default 0 check (payment_attempts >= 0 and payment_attempts <= 10),
   status text not null check (status in ('pending', 'awaiting_payment', 'approved', 'scheduled', 'completed', 'denied', 'cancelled', 'expired')),
   discord_channel_id text,
   discord_message_id text,
@@ -89,6 +96,13 @@ alter table public.game_requests add column if not exists discord_deleted_at tim
 alter table public.game_requests add column if not exists discord_last_error text;
 alter table public.game_requests add column if not exists scheduled_for timestamptz;
 alter table public.game_requests add column if not exists youtube_vod_url text;
+alter table public.game_requests add column if not exists payment_currency text not null default 'USD';
+alter table public.game_requests add column if not exists paypal_order_id text;
+alter table public.game_requests add column if not exists paypal_capture_id text;
+alter table public.game_requests add column if not exists paypal_status text;
+alter table public.game_requests add column if not exists payment_completed_at timestamptz;
+alter table public.game_requests add column if not exists payment_error text;
+alter table public.game_requests add column if not exists payment_attempts integer not null default 0;
 alter table public.game_requests add column if not exists resolved_by_platform text;
 alter table public.game_requests add column if not exists resolved_by_user_id text;
 alter table public.game_requests add column if not exists resolved_by_name text;
@@ -103,6 +117,12 @@ create index if not exists game_requests_game_idx
 create index if not exists game_requests_discord_cleanup_idx
   on public.game_requests (discord_delete_at)
   where discord_message_id is not null and discord_delete_at is not null;
+create unique index if not exists game_requests_paypal_order_idx
+  on public.game_requests (paypal_order_id)
+  where paypal_order_id is not null;
+create unique index if not exists game_requests_paypal_capture_idx
+  on public.game_requests (paypal_capture_id)
+  where paypal_capture_id is not null;
 create unique index if not exists game_requests_one_active_idx
   on public.game_requests ((true))
   where status in ('pending', 'awaiting_payment', 'approved', 'scheduled');

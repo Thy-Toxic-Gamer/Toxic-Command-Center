@@ -115,7 +115,7 @@
   function requestCard(row) {
     const statuses = ["pending", "awaiting_payment", "approved", "scheduled", "completed", "denied", "cancelled", "expired"];
     return `<article class="staff-request" data-request-id="${escapeHtml(row.id)}">
-      <div><h3>${escapeHtml(row.game_title)}</h3><div class="staff-request-meta"><span>${requestCode(row)}</span><span>${escapeHtml(row.game_system)}</span><span>${escapeHtml(row.request_type)}</span><span>${escapeHtml(row.status.replaceAll("_", " "))}</span><span>${row.is_owner ? "$0 · Owner" : `$${Number(row.amount_due).toFixed(2)}`}</span><span>${escapeHtml(row.twitch_display_name)}</span></div><p>Submitted ${formatDate(row.created_at)}</p></div>
+      <div><h3>${escapeHtml(row.game_title)}</h3><div class="staff-request-meta"><span>${requestCode(row)}</span><span>${escapeHtml(row.game_system)}</span><span>${escapeHtml(row.request_type)}</span><span>${escapeHtml(row.status.replaceAll("_", " "))}</span><span>${row.is_owner ? "$0 · Owner" : `$${Number(row.amount_due).toFixed(2)}`}</span><span>${row.is_owner ? "Payment exempt" : row.paypal_status === "COMPLETED" ? "PayPal verified" : "Payment pending"}</span><span>${escapeHtml(row.twitch_display_name)}</span></div><p>Submitted ${formatDate(row.created_at)}${row.payment_completed_at ? ` · Paid ${formatDate(row.payment_completed_at)}` : ""}</p></div>
       <div class="request-actions">
         <label class="action-field"><span>Status</span><select data-request-status aria-label="Request status">${statuses.map((status) => `<option value="${status}"${status === row.status ? " selected" : ""}>${status.replaceAll("_", " ")}</option>`).join("")}</select></label>
         <button type="button" data-update-request>Update request</button>
