@@ -20,7 +20,15 @@
       <a href="https://thy-toxic-gamer.github.io/Toxic-Command-Center/">Command Center</a>
       <a class="active" href="#top" aria-current="page">Game Requests</a>
     </nav>
-    <div class="catalog-status"><span class="status-dot"></span><span id="catalogCount">Catalog loading</span></div>
+    <div class="topbar-account">
+      <div class="catalog-status"><span class="status-dot"></span><span id="catalogCount">Catalog loading</span></div>
+      <button class="twitch-signin" id="twitchSignIn" type="button">Sign in with Twitch</button>
+      <div class="viewer-account" id="viewerAccount" hidden>
+        <img id="viewerAvatar" alt="">
+        <span><strong id="viewerName"></strong><small id="viewerRole">Twitch viewer</small></span>
+        <button id="twitchSignOut" type="button">Sign out</button>
+      </div>
+    </div>
   </header>
 
   <main id="top">
@@ -93,18 +101,20 @@
   </footer>
 
   <dialog id="requestDialog" class="request-dialog">
-    <form method="dialog">
-      <button class="dialog-close" value="cancel" aria-label="Close request form">×</button>
+    <form id="requestForm">
+      <button class="dialog-close" id="requestClose" type="button" aria-label="Close request form">×</button>
       <p class="eyebrow">Game selected</p>
       <h2 id="requestTitle">Game request</h2>
       <p id="requestMeta" class="dialog-meta"></p>
+      <div class="request-identity" id="requestIdentity"></div>
       <div class="price-options" aria-label="Request type">
         <button type="button" data-plan="Play" data-price="5"><span>Play</span><b>$5</b><small>Standard stream request</small></button>
         <button type="button" data-plan="Speed" data-price="10"><span>Speed</span><b>$10</b><small>Focused completion run</small></button>
         <button type="button" data-plan="100%" data-price="15"><span>100%</span><b>$15</b><small>May require multiple streams</small></button>
       </div>
       <p class="dialog-note">Requests run 18–24 hours on Friday evening or Saturday morning. Payment opens after approval.</p>
-      <button class="submit-request" value="cancel" disabled>Request connection coming next</button>
+      <div class="request-notice" id="requestNotice" role="status" hidden></div>
+      <button class="submit-request" id="submitRequest" type="submit" disabled>Select a request type</button>
     </form>
   </dialog>
 

@@ -72,6 +72,16 @@ button { color: inherit; }
 .command-nav a.active { color: #090b09; border-color: var(--toxic); background: var(--toxic); box-shadow: 0 0 18px rgba(181,255,24,.16); }
 .catalog-status { display: flex; align-items: center; gap: 8px; color: var(--muted); font-size: .88rem; }
 .status-dot { width: 8px; height: 8px; border-radius: 999px; background: var(--toxic); box-shadow: 0 0 14px var(--toxic); }
+.topbar-account { display: flex; align-items: center; gap: 12px; }
+.twitch-signin { min-height: 38px; padding: 0 13px; border: 1px solid #9146ff; border-radius: 9px; background: rgba(145,70,255,.15); color: #f5efff; font-size: .78rem; font-weight: 900; cursor: pointer; }
+.twitch-signin:hover { background: #9146ff; color: #fff; }
+.viewer-account { display: flex; align-items: center; gap: 9px; min-height: 42px; padding: 4px 5px 4px 7px; border: 1px solid #354036; border-radius: 12px; background: #101411; }
+.viewer-account img { width: 31px; height: 31px; border-radius: 50%; object-fit: cover; background: #202620; }
+.viewer-account span { min-width: 0; }
+.viewer-account strong, .viewer-account small { display: block; max-width: 130px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.viewer-account strong { font-size: .76rem; }
+.viewer-account small { margin-top: 1px; color: var(--muted); font-size: .64rem; }
+.viewer-account button { min-height: 30px; padding: 0 8px; border: 0; border-radius: 7px; background: #252b26; color: #c8cfc9; font-size: .68rem; cursor: pointer; }
 
 main { width: min(1540px, 100%); margin: 0 auto; padding: 36px clamp(18px, 4vw, 54px) 80px; }
 .controls { display: grid; grid-template-columns: 1fr minmax(280px, 520px); align-items: end; gap: 28px; margin-bottom: 28px; }
@@ -162,17 +172,25 @@ h1 { margin: 0; font-size: clamp(2.25rem, 5vw, 4.6rem); letter-spacing: -.045em;
 .dialog-close { position: absolute; top: 14px; right: 14px; width: 36px; height: 36px; border: 1px solid #354035; border-radius: 50%; background: #161b17; cursor: pointer; font-size: 1.3rem; }
 .request-dialog h2 { max-width: 450px; margin: 0; font-size: 1.6rem; line-height: 1.15; }
 .dialog-meta { margin: 8px 0 22px; color: var(--muted); }
+.request-identity { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 48px; margin: 0 0 14px; padding: 10px 12px; border: 1px solid #303a31; border-radius: 11px; background: #121613; color: #dce2dc; font-size: .8rem; }
+.request-identity strong { color: #fff; }
+.request-identity button { min-height: 31px; padding: 0 10px; border: 1px solid #9146ff; border-radius: 8px; background: rgba(145,70,255,.16); color: #fff; font-weight: 800; cursor: pointer; }
 .price-options { display: grid; grid-template-columns: repeat(3, 1fr); gap: 9px; }
 .price-options button { min-height: 104px; display: grid; align-content: center; gap: 3px; padding: 12px; border: 1px solid #334034; border-radius: 12px; background: #151a16; cursor: pointer; text-align: left; }
 .price-options button:hover, .price-options button.selected { border-color: var(--toxic); background: rgba(181,255,24,.08); }
 .price-options span { font-weight: 900; } .price-options b { color: var(--toxic); font-size: 1.4rem; } .price-options small { color: var(--muted); line-height: 1.25; }
 .dialog-note { color: var(--muted); font-size: .82rem; line-height: 1.45; }
-.submit-request { width: 100%; min-height: 46px; border: 0; border-radius: 11px; background: #2a302b; color: #7e877e; font-weight: 900; }
+.request-notice { margin: 0 0 12px; padding: 11px 12px; border: 1px solid #3b463c; border-radius: 10px; background: #151a16; color: #e8ece8; font-size: .82rem; line-height: 1.4; }
+.request-notice.error { border-color: rgba(255,59,147,.55); background: rgba(255,59,147,.09); color: #ffd6e8; }
+.request-notice.success { border-color: rgba(181,255,24,.5); background: rgba(181,255,24,.08); color: #edffc7; }
+.submit-request { width: 100%; min-height: 46px; border: 1px solid var(--toxic); border-radius: 11px; background: var(--toxic); color: #0a0c0a; font-weight: 900; cursor: pointer; }
+.submit-request:disabled { border-color: #2a302b; background: #2a302b; color: #7e877e; cursor: not-allowed; }
 
 @media (max-width: 900px) {
   .topbar { flex-wrap: wrap; gap: 10px 18px; }
   .command-nav { order: 3; width: 100%; overflow-x: auto; }
   .catalog-status { margin-left: auto; }
+  .topbar-account { width: 100%; justify-content: flex-end; }
   .controls { grid-template-columns: 1fr; align-items: start; }
   .catalog-shell { grid-template-columns: 1fr; }
   .filters { position: static; display: flex; gap: 8px; max-height: none; padding: 10px; overflow-x: auto; }
@@ -184,6 +202,8 @@ h1 { margin: 0; font-size: clamp(2.25rem, 5vw, 4.6rem); letter-spacing: -.045em;
 @media (max-width: 620px) {
   .topbar { padding-inline: 16px; }
   .catalog-status { display: none; }
+  .topbar-account { width: auto; margin-left: auto; }
+  .viewer-account strong, .viewer-account small { max-width: 88px; }
   main { padding-inline: 14px; }
   .game-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 9px; }
   .game-card { min-height: 300px; }

@@ -65,22 +65,31 @@ function completeOAuthReturn() {
   const expected = sessionStorage.getItem(OAUTH_STATE_KEY) || "";
   const platform = sessionStorage.getItem(OAUTH_PROVIDER_KEY) || "twitch";
   const purpose = sessionStorage.getItem(OAUTH_PURPOSE_KEY) || "signin";
+  const returnTo = sessionStorage.getItem(RETURN_KEY);
   const token = hash.get("access_token");
   const error = hash.get("error_description") || hash.get("error");
   history.replaceState(null, "", REDIRECT_URI);
   [OAUTH_STATE_KEY, OAUTH_PROVIDER_KEY, OAUTH_PURPOSE_KEY].forEach((key) => sessionStorage.removeItem(key));
   if (error || !token || !expected || hash.get("state") !== expected || !PROVIDERS[platform]) {
     sessionStorage.setItem("thy_toxic_appeals_auth_error", error || "Sign-in could not be verified. Please try again.");
+    sessionStorage.removeItem(RETURN_KEY);
+    if (returnTo === "games") {
+      location.replace("../games/?auth=error");
+      return "redirecting";
+    }
     return true;
   }
   sessionStorage.setItem(PROVIDERS[platform].tokenKey, token);
   if (purpose === "link") sessionStorage.setItem(LINK_PENDING_KEY, platform);
   else sessionStorage.setItem(ACTIVE_KEY, platform);
-  const returnTo = sessionStorage.getItem(RETURN_KEY);
   sessionStorage.removeItem(RETURN_KEY);
   if (returnTo === "staff.html") {
     sessionStorage.setItem(ACTIVE_KEY, platform);
     location.replace("staff.html");
+    return "redirecting";
+  }
+  if (returnTo === "games") {
+    location.replace("../games/");
     return "redirecting";
   }
   if (returnTo === "track") sessionStorage.setItem(AFTER_AUTH_VIEW_KEY, "track");
