@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Support ThyToxicGamer securely through the official Support Center.">
+  <meta name="theme-color" content="#060907">
+  <meta name="referrer" content="strict-origin-when-cross-origin">
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+  <meta http-equiv="Pragma" content="no-cache">
+  <meta http-equiv="Expires" content="0">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://unpkg.com; style-src 'self'; img-src 'self' data:; connect-src https://ubldjtsjfudogtgxakiq.supabase.co; base-uri 'self'; form-action https://www.paypal.com https://www.sandbox.paypal.com; frame-ancestors 'none'">
+  <title>Support Center | ThyToxicGamer</title>
+  <link rel="icon" href="../appeals-center/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="styles.css?v=20260918-1">
+  <script src="https://unpkg.com/lucide@0.468.0/dist/umd/lucide.min.js" defer></script>
+  <script src="app.js?v=20260918-1" defer></script>
+</head>
+<body>
+  <main class="site-shell">
+    <header class="topbar">
+      <a class="brand" href="./" aria-label="ThyToxicGamer Support Center home">
+        <span class="brand-mark" aria-hidden="true"><i data-lucide="radiation"></i></span>
+        <span><strong>TOXIC SUPPORT CENTER</strong><em>Secure payment station</em></span>
+      </a>
+      <nav aria-label="Support navigation">
+        <a class="nav-active" href="#support">Support</a>
+        <a href="#how-it-works">How it works</a>
+        <a class="central-link" href="../"><i data-lucide="layout-dashboard"></i><span>Central Command</span></a>
+      </nav>
+    </header>
+
+    <section class="hero" aria-labelledby="page-title">
+      <div class="hero-copy">
+        <span class="kicker"><i data-lucide="shield-check"></i> Official ThyToxicGamer support station</span>
+        <h1 id="page-title">FUEL THE STREAM.<br><span>KEEP THE CHAOS LIVE.</span></h1>
+        <p>Support better streams, new creator tools, community events, and future upgrades through one secure checkout.</p>
+        <div class="hero-trust"><span><i data-lucide="lock-keyhole"></i> PayPal-secured checkout</span><span><i data-lucide="bell-ring"></i> Optional live recognition</span></div>
+      </div>
+      <div class="station-status" aria-label="Payment station status"><span></span><small>PAYMENT STATION</small><strong>STANDBY</strong></div>
+    </section>
+
+    <section class="support-workspace" id="support">
+      <div id="notice" class="notice" hidden aria-live="polite"></div>
+
+      <form class="support-form" id="support-form" novalidate>
+        <div class="section-heading"><span>01</span><div><h2>Choose your support</h2><p>Select an amount or enter your own.</p></div></div>
+
+        <fieldset class="amounts">
+          <legend>Donation amount</legend>
+          <div class="amount-grid" id="amount-grid">
+            <button type="button" data-amount="10">$10</button>
+            <button type="button" data-amount="20" class="is-active">$20</button>
+            <button type="button" data-amount="50">$50</button>
+            <button type="button" data-amount="100">$100</button>
+            <button type="button" data-amount="150">$150</button>
+            <button type="button" data-amount="other">Other</button>
+          </div>
+          <label class="custom-amount" id="custom-amount-wrap" hidden>
+            <span>Custom amount</span>
+            <span class="currency-input"><b>$</b><input id="custom-amount" inputmode="decimal" type="number" min="1" max="1000" step="0.01" placeholder="25.00"></span>
+          </label>
+        </fieldset>
+
+        <div class="field-grid">
+          <label><span>Supporter name <small>optional</small></span><input id="supporter-name" name="supporterName" maxlength="60" autocomplete="nickname" placeholder="Your display name"></label>
+          <label class="toggle-card"><input id="anonymous" name="anonymous" type="checkbox"><span class="toggle"><i></i></span><span><strong>Donate anonymously</strong><small>Your public name will display as Anonymous.</small></span></label>
+        </div>
+
+        <label><span>Support message <small>optional</small></span><textarea id="support-message" name="message" maxlength="500" rows="5" placeholder="Leave a message for the stream…"></textarea><small class="field-hint"><span id="message-count">0</span>/500 characters</small></label>
+
+        <label class="toggle-card toggle-card--wide"><input id="allow-tts" name="allowTts" type="checkbox"><span class="toggle"><i></i></span><span><strong>Allow this message to be read by TTS</strong><small>Messages still pass through the Toxic TTS review queue and safety filters.</small></span></label>
+
+        <div class="checkout-row">
+          <div><span>Total support</span><strong id="checkout-total">$20.00 USD</strong></div>
+          <button class="paypal-button" id="checkout-button" type="submit"><i data-lucide="lock-keyhole"></i><span>Continue securely with PayPal</span><i data-lucide="arrow-right"></i></button>
+        </div>
+        <p class="checkout-note"><i data-lucide="shield-check"></i> Payment details are handled by PayPal. This site never receives or stores your card or bank information.</p>
+      </form>
+
+      <aside class="side-rail">
+        <section class="preview-card" aria-labelledby="preview-title">
+          <div class="preview-label"><span></span> LIVE ALERT PREVIEW</div>
+          <div class="alert-preview">
+            <span class="preview-icon"><i data-lucide="heart-handshake"></i></span>
+            <div><small>DONATION RECEIVED</small><h3 id="preview-title"><span id="preview-name">Supporter</span> donated <span id="preview-amount">$20.00</span></h3><p id="preview-message">Your optional message will appear here.</p></div>
+          </div>
+          <p class="preview-note">The actual alert appears only after PayPal confirms the payment.</p>
+        </section>
+
+        <section class="impact-card">
+          <span class="eyebrow">WHERE IT GOES</span>
+          <h3>Built back into the stream.</h3>
+          <ul><li><i data-lucide="monitor-up"></i><span><strong>Stream upgrades</strong>Equipment, software, and production improvements.</span></li><li><i data-lucide="sparkles"></i><span><strong>Creator features</strong>Custom alerts, overlays, events, and community tools.</span></li><li><i data-lucide="users"></i><span><strong>Community experiences</strong>Games, challenges, rewards, and special streams.</span></li></ul>
+        </section>
+      </aside>
+    </section>
+
+    <section class="process" id="how-it-works">
+      <div class="section-heading"><span>02</span><div><h2>One secure handoff</h2><p>The Support Center records only what it needs.</p></div></div>
+      <div class="process-grid"><article><strong>1</strong><i data-lucide="mouse-pointer-click"></i><h3>Customize</h3><p>Choose your amount, display name, message, and TTS preference.</p></article><article><strong>2</strong><i data-lucide="badge-dollar-sign"></i><h3>Pay with PayPal</h3><p>Complete payment on PayPal's secure checkout.</p></article><article><strong>3</strong><i data-lucide="radio-tower"></i><h3>Confirmed alert</h3><p>After verification, the receipt, Discord record, and live alert are created once.</p></article></div>
+    </section>
+
+    <footer><span>THYTOXICGAMER • SUPPORT CENTER</span><a href="../">Return to Toxic Command Center</a><span>Secure checkout. Verified alerts. No duplicates.</span></footer>
+  </main>
+</body>
+</html>
