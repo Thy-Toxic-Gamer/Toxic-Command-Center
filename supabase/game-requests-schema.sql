@@ -69,6 +69,11 @@ create table if not exists public.game_requests (
   status text not null check (status in ('pending', 'awaiting_payment', 'approved', 'scheduled', 'completed', 'denied', 'cancelled', 'expired')),
   discord_channel_id text,
   discord_message_id text,
+  discord_delete_at timestamptz,
+  discord_deleted_at timestamptz,
+  discord_last_error text,
+  scheduled_for timestamptz,
+  youtube_vod_url text,
   completed_at timestamptz,
   resolved_by_platform text,
   resolved_by_user_id text,
@@ -79,6 +84,11 @@ create table if not exists public.game_requests (
 );
 
 alter table public.game_requests add column if not exists completed_at timestamptz;
+alter table public.game_requests add column if not exists discord_delete_at timestamptz;
+alter table public.game_requests add column if not exists discord_deleted_at timestamptz;
+alter table public.game_requests add column if not exists discord_last_error text;
+alter table public.game_requests add column if not exists scheduled_for timestamptz;
+alter table public.game_requests add column if not exists youtube_vod_url text;
 alter table public.game_requests add column if not exists resolved_by_platform text;
 alter table public.game_requests add column if not exists resolved_by_user_id text;
 alter table public.game_requests add column if not exists resolved_by_name text;
@@ -90,6 +100,9 @@ create index if not exists game_requests_status_idx
   on public.game_requests (status, created_at desc);
 create index if not exists game_requests_game_idx
   on public.game_requests (game_id, status);
+create index if not exists game_requests_discord_cleanup_idx
+  on public.game_requests (discord_delete_at)
+  where discord_message_id is not null and discord_delete_at is not null;
 create unique index if not exists game_requests_one_active_idx
   on public.game_requests ((true))
   where status in ('pending', 'awaiting_payment', 'approved', 'scheduled');
@@ -120,6 +133,9 @@ create table if not exists public.game_request_system_events (
 
 create index if not exists game_request_system_events_created_idx
   on public.game_request_system_events (created_at desc);
+create index if not exists game_request_system_events_request_idx
+  on public.game_request_system_events (request_id)
+  where request_id is not null;
 
 alter table public.game_request_settings enable row level security;
 alter table public.game_request_staff enable row level security;

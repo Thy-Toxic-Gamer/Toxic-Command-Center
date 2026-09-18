@@ -82,6 +82,14 @@
     return new Intl.DateTimeFormat(undefined, { dateStyle: "medium", timeStyle: "short" }).format(new Date(value));
   }
 
+  function localDateTimeValue(value) {
+    if (!value) return "";
+    const date = new Date(value);
+    if (!Number.isFinite(date.getTime())) return "";
+    const offset = date.getTimezoneOffset() * 60000;
+    return new Date(date.getTime() - offset).toISOString().slice(0, 16);
+  }
+
   function remainingLabel(value) {
     const remaining = new Date(value).getTime() - Date.now();
     if (remaining <= 0) return "Reopening now";
@@ -108,8 +116,27 @@
     const statuses = ["pending", "awaiting_payment", "approved", "scheduled", "completed", "denied", "cancelled", "expired"];
     return `<article class="staff-request" data-request-id="${escapeHtml(row.id)}">
       <div><h3>${escapeHtml(row.game_title)}</h3><div class="staff-request-meta"><span>${requestCode(row)}</span><span>${escapeHtml(row.game_system)}</span><span>${escapeHtml(row.request_type)}</span><span>${escapeHtml(row.status.replaceAll("_", " "))}</span><span>${row.is_owner ? "$0 · Owner" : `$${Number(row.amount_due).toFixed(2)}`}</span><span>${escapeHtml(row.twitch_display_name)}</span></div><p>Submitted ${formatDate(row.created_at)}</p></div>
-      <div class="request-actions"><select aria-label="Request status">${statuses.map((status) => `<option value="${status}"${status === row.status ? " selected" : ""}>${status.replaceAll("_", " ")}</option>`).join("")}</select><button type="button" data-update-request>Update</button><input maxlength="1000" placeholder="Optional staff note" aria-label="Staff note"></div>
+      <div class="request-actions">
+        <label class="action-field"><span>Status</span><select data-request-status aria-label="Request status">${statuses.map((status) => `<option value="${status}"${status === row.status ? " selected" : ""}>${status.replaceAll("_", " ")}</option>`).join("")}</select></label>
+        <button type="button" data-update-request>Update request</button>
+        <label class="action-field status-field schedule-field"${row.status === "scheduled" ? "" : " hidden"}><span>Scheduled date and time</span><input data-scheduled-for type="datetime-local" value="${escapeHtml(localDateTimeValue(row.scheduled_for))}"></label>
+        <label class="action-field status-field vod-field" hidden><span>YouTube VOD link</span><input data-youtube-vod type="url" inputmode="url" maxlength="500" placeholder="https://youtube.com/watch?v=…"></label>
+        <label class="action-field note-field"><span>Staff note <small>optional</small></span><input data-staff-note maxlength="1000" placeholder="Reason or update details"></label>
+      </div>
     </article>`;
+  }
+
+  function setStatusFields(card) {
+    const status = card.querySelector("[data-request-status]").value;
+    const schedule = card.querySelector(".schedule-field");
+    const vod = card.querySelector(".vod-field");
+    const scheduledInput = card.querySelector("[data-scheduled-for]");
+    const vodInput = card.querySelector("[data-youtube-vod]");
+    schedule.hidden = status !== "scheduled";
+    vod.hidden = status !== "completed";
+    scheduledInput.required = status === "scheduled";
+    vodInput.required = status === "completed";
+    scheduledInput.min = localDateTimeValue(new Date(Date.now() + 60000).toISOString());
   }
 
   function archiveCard(row, isOwner) {
@@ -132,6 +159,7 @@
     document.querySelector("#queueCount").textContent = `${data.queue.length} active`;
     document.querySelector("#archiveCount").textContent = `${data.archive.length} archived`;
     queue.innerHTML = data.queue.length ? data.queue.map(requestCard).join("") : '<div class="empty-staff">No active request.</div>';
+    queue.querySelectorAll("[data-request-id]").forEach(setStatusFields);
     archive.innerHTML = data.archive.length ? data.archive.map((row) => archiveCard(row, data.staff.role === "owner")).join("") : '<div class="empty-staff">No archived requests yet.</div>';
   }
 
@@ -171,9 +199,23 @@
     const button = event.target.closest("[data-update-request]");
     if (!button) return;
     const card = button.closest("[data-request-id]");
+    setStatusFields(card);
+    const requiredInput = card.querySelector("input:required");
+    if (requiredInput && !requiredInput.reportValidity()) return;
     button.disabled = true;
-    try { render(await api("update_request", { id: card.dataset.requestId, status: card.querySelector("select").value, note: card.querySelector("input").value })); setNotice("Request updated."); }
+    const scheduledRaw = card.querySelector("[data-scheduled-for]").value;
+    try { render(await api("update_request", {
+      id: card.dataset.requestId,
+      status: card.querySelector("[data-request-status]").value,
+      note: card.querySelector("[data-staff-note]").value,
+      scheduledFor: scheduledRaw ? new Date(scheduledRaw).toISOString() : null,
+      youtubeVodUrl: card.querySelector("[data-youtube-vod]").value,
+    })); setNotice("Request updated in the website and Discord."); }
     catch (error) { setNotice(error.message, true); button.disabled = false; }
+  });
+  queue.addEventListener("change", (event) => {
+    if (!event.target.matches("[data-request-status]")) return;
+    setStatusFields(event.target.closest("[data-request-id]"));
   });
   archive.addEventListener("click", async (event) => {
     const button = event.target.closest("[data-delete-request]");

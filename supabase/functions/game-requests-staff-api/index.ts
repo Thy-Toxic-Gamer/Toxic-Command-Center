@@ -7,9 +7,20 @@ const ALLOWED_ORIGIN = "https://thy-toxic-gamer.github.io";
 const ACTIVE_STATUSES = ["pending", "awaiting_payment", "approved", "scheduled"];
 const FINAL_STATUSES = ["completed", "denied", "cancelled", "expired"];
 const ALL_STATUSES = new Set([...ACTIVE_STATUSES, ...FINAL_STATUSES]);
+const CHANNELS: Record<string, string> = {
+  pending: "1542688040353275994",
+  awaiting_payment: "1542727353602543616",
+  approved: "1542690394255532052",
+  scheduled: "1544521683728338964",
+  completed: "1543811262125965402",
+  denied: "1542690094450872410",
+  cancelled: "1542744432862957600",
+  expired: "1542746875805831289",
+};
+const LOG_CHANNEL_ID = "1543750250097938562";
 const DISCORD_ADMINISTRATOR = 1n << 3n;
 const DISCORD_STAFF_PERMISSIONS = (1n << 1n) | (1n << 2n) | (1n << 5n) | (1n << 13n) | (1n << 40n);
-const REQUEST_SELECT = "id,request_number,twitch_display_name,twitch_login,game_id,game_title,game_system,request_type,base_price,amount_due,is_owner,payment_required,status,created_at,updated_at,completed_at,resolution_note";
+const REQUEST_SELECT = "id,request_number,twitch_display_name,twitch_login,game_id,game_title,game_system,request_type,base_price,amount_due,is_owner,payment_required,status,created_at,updated_at,completed_at,resolution_note,scheduled_for";
 const CORS_HEADERS = {
   "Access-Control-Allow-Origin": ALLOWED_ORIGIN,
   "Access-Control-Allow-Headers": "authorization, apikey, content-type, x-game-platform",
@@ -93,12 +104,16 @@ async function authenticate(request: Request): Promise<Identity> {
   return platform === "discord" ? await discordIdentity(token) : await twitchIdentity(token);
 }
 
-async function discordBot(path: string) {
+async function discordRequest(path: string, init: RequestInit = {}, allowNotFound = false) {
   const token = Deno.env.get("DISCORD_BOT_TOKEN");
   if (!token) throw new Error("Discord bot connection is unavailable.");
-  const response = await fetch(`${DISCORD_API}${path}`, { headers: { Authorization: `Bot ${token}` } });
-  const data = await response.json().catch(() => null);
-  if (!response.ok) throw new Error(`Discord staff lookup failed (${response.status}).`);
+  const response = await fetch(`${DISCORD_API}${path}`, {
+    ...init,
+    headers: { Authorization: `Bot ${token}`, ...(init.body ? { "Content-Type": "application/json" } : {}), ...(init.headers || {}) },
+  });
+  if (allowNotFound && response.status === 404) return null;
+  const data = response.status === 204 ? null : await response.json().catch(() => null);
+  if (!response.ok) throw new Error(`Discord request failed (${response.status}).`);
   return data;
 }
 
@@ -118,8 +133,8 @@ async function discordGuildStaff(admin: any, userId: string) {
   for (const config of configs ?? []) {
     try {
       const [member, roles] = await Promise.all([
-        discordBot(`/guilds/${config.guild_id}/members/${userId}`),
-        discordBot(`/guilds/${config.guild_id}/roles`),
+        discordRequest(`/guilds/${config.guild_id}/members/${userId}`),
+        discordRequest(`/guilds/${config.guild_id}/roles`),
       ]);
       const roleIds = new Set([String(config.guild_id), ...stringIds(member.roles)]);
       let permissions = 0n;
@@ -172,6 +187,63 @@ async function availability(admin: any) {
   return { open, mode, message, reopensAt, activeRequest: active ? { id: active.id, code: `GR-${String(active.request_number).padStart(6, "0")}`, gameTitle: active.game_title, status: active.status } : null };
 }
 
+function requestCode(row: any) { return `GR-${String(row.request_number).padStart(6, "0")}`; }
+function displayStatus(status: string) { return status.replaceAll("_", " ").replace(/\b\w/g, (letter) => letter.toUpperCase()); }
+function discordTimestamp(value: string) { return `<t:${Math.floor(new Date(value).getTime() / 1000)}:F>`; }
+
+function youtubeUrl(raw: unknown) {
+  const value = String(raw || "").trim();
+  if (!value) return null;
+  try {
+    const url = new URL(value);
+    const host = url.hostname.toLowerCase().replace(/^www\./, "");
+    if (url.protocol !== "https:" || !(host === "youtube.com" || host.endsWith(".youtube.com") || host === "youtu.be")) return null;
+    return url.toString().slice(0, 500);
+  } catch { return null; }
+}
+
+function requestEmbed(row: any) {
+  const colors: Record<string, number> = { pending: 0xff3b93, awaiting_payment: 0xffc107, approved: 0xb5ff18, scheduled: 0x5865f2, completed: 0x22c55e, denied: 0xef4444, cancelled: 0x94a3b8, expired: 0xf97316 };
+  const titles: Record<string, string> = { pending: "New Game Request", awaiting_payment: "Game Request Awaiting Payment", approved: "Game Request Approved", scheduled: "Game Request Scheduled", completed: "Game Request Completed", denied: "Game Request Denied", cancelled: "Game Request Cancelled", expired: "Game Request Expired" };
+  const fields: any[] = [
+    { name: "Game", value: `${row.game_title}\n${row.game_system}`, inline: false },
+    { name: "Requester", value: row.twitch_display_name, inline: true },
+    { name: "Request Type", value: row.request_type, inline: true },
+    { name: "Amount", value: row.is_owner ? "$0.00 · Owner" : `$${Number(row.amount_due).toFixed(2)}`, inline: true },
+    { name: "Status", value: displayStatus(row.status), inline: true },
+  ];
+  if (row.scheduled_for) fields.push({ name: "Scheduled For", value: discordTimestamp(row.scheduled_for), inline: false });
+  if (row.status === "completed" && row.youtube_vod_url) fields.push({ name: "YouTube VOD", value: `[Watch the completed request](${row.youtube_vod_url})`, inline: false });
+  if (row.resolution_note) fields.push({ name: "Staff Note", value: String(row.resolution_note).slice(0, 1000), inline: false });
+  fields.push({ name: "Catalog ID", value: row.game_id, inline: true });
+  return { title: titles[row.status] || "Game Request", color: colors[row.status] || 0xb5ff18, fields, footer: { text: requestCode(row) }, timestamp: row.updated_at || row.created_at };
+}
+
+async function routeDiscordRecord(existing: any, next: any) {
+  const targetChannel = CHANNELS[next.status];
+  if (!targetChannel) throw new Error("The Discord destination channel is not configured.");
+  const payload = JSON.stringify({ allowed_mentions: { parse: [] }, embeds: [requestEmbed(next)] });
+  if (existing.discord_channel_id === targetChannel && existing.discord_message_id) {
+    const updated = await discordRequest(`/channels/${targetChannel}/messages/${existing.discord_message_id}`, { method: "PATCH", body: payload }, true);
+    if (updated?.id) return { channelId: targetChannel, messageId: String(updated.id), oldChannelId: null, oldMessageId: null, created: false };
+  }
+  const created = await discordRequest(`/channels/${targetChannel}/messages`, { method: "POST", body: payload });
+  if (!created?.id) throw new Error("Discord did not return a message ID.");
+  return { channelId: targetChannel, messageId: String(created.id), oldChannelId: existing.discord_channel_id || null, oldMessageId: existing.discord_message_id || null, created: true };
+}
+
+async function removeDiscordMessage(channelId: string | null, messageId: string | null) {
+  if (!channelId || !messageId) return;
+  await discordRequest(`/channels/${channelId}/messages/${messageId}`, { method: "DELETE" }, true);
+}
+
+async function sendDiscordLog(title: string, fields: any[], color = 0xb5ff18) {
+  await discordRequest(`/channels/${LOG_CHANNEL_ID}/messages`, {
+    method: "POST",
+    body: JSON.stringify({ allowed_mentions: { parse: [] }, embeds: [{ title, color, fields, timestamp: new Date().toISOString() }] }),
+  });
+}
+
 async function audit(admin: any, identity: Identity, staff: any, eventType: string, details: any, requestId: string | null = null) {
   await admin.from("game_request_system_events").insert({ event_type: eventType, actor_platform: identity.platform, actor_user_id: identity.id, actor_name: identity.displayName, actor_role: staff.role, request_id: requestId, details });
 }
@@ -192,16 +264,23 @@ async function setAvailability(admin: any, identity: Identity, staff: any, body:
   const current = await availability(admin);
   if (desired === "open" && current.activeRequest) throw new ApiError("Finish, deny, cancel, or expire the active request before reopening.", 409);
   const now = new Date();
+  let logFields: any[];
   if (desired === "open") {
-    await admin.from("game_request_settings").update({ requests_open: true, manual_closed: false, manual_reopens_at: null, cooldown_until: null, closed_message: "Game requests are temporarily closed.", updated_by_platform: identity.platform, updated_by_user_id: identity.id, updated_by_name: identity.displayName, updated_at: now.toISOString() }).eq("id", true);
+    const result = await admin.from("game_request_settings").update({ requests_open: true, manual_closed: false, manual_reopens_at: null, cooldown_until: null, closed_message: "Game requests are temporarily closed.", updated_by_platform: identity.platform, updated_by_user_id: identity.id, updated_by_name: identity.displayName, updated_at: now.toISOString() }).eq("id", true);
+    if (result.error) throw new ApiError("Game requests could not be opened.", 500);
     await audit(admin, identity, staff, "requests_opened", { early_reopen: current.mode === "cooldown" || current.mode === "manual" });
+    logFields = [{ name: "Action", value: "Requests opened", inline: true }, { name: "Staff", value: identity.displayName, inline: true }];
   } else {
     const rawReopens = body.reopensAt ? new Date(String(body.reopensAt)) : null;
     if (rawReopens && (!Number.isFinite(rawReopens.getTime()) || rawReopens.getTime() <= now.getTime())) throw new ApiError("Choose a future reopening time.");
     const message = String(body.message || "Game requests are temporarily closed.").trim().slice(0, 250) || "Game requests are temporarily closed.";
-    await admin.from("game_request_settings").update({ requests_open: false, manual_closed: true, manual_reopens_at: rawReopens?.toISOString() ?? null, closed_message: message, updated_by_platform: identity.platform, updated_by_user_id: identity.id, updated_by_name: identity.displayName, updated_at: now.toISOString() }).eq("id", true);
+    const result = await admin.from("game_request_settings").update({ requests_open: false, manual_closed: true, manual_reopens_at: rawReopens?.toISOString() ?? null, closed_message: message, updated_by_platform: identity.platform, updated_by_user_id: identity.id, updated_by_name: identity.displayName, updated_at: now.toISOString() }).eq("id", true);
+    if (result.error) throw new ApiError("Game requests could not be closed.", 500);
     await audit(admin, identity, staff, "requests_closed", { message, reopens_at: rawReopens?.toISOString() ?? null });
+    logFields = [{ name: "Action", value: "Requests closed", inline: true }, { name: "Staff", value: identity.displayName, inline: true }, { name: "Reason", value: message, inline: false }];
+    if (rawReopens) logFields.push({ name: "Scheduled Reopening", value: discordTimestamp(rawReopens.toISOString()), inline: false });
   }
+  try { await sendDiscordLog("Game Request Availability Changed", logFields); } catch (error) { console.error("Discord availability log failed", error); }
   return await dashboard(admin, identity, staff);
 }
 
@@ -214,13 +293,52 @@ async function updateRequest(admin: any, identity: Identity, staff: any, body: a
   const { data: existing, error: existingError } = await admin.from("game_requests").select("*").eq("id", id).maybeSingle();
   if (existingError || !existing) throw new ApiError("Request not found.", 404);
   if (FINAL_STATUSES.includes(existing.status)) throw new ApiError("Archived requests cannot be changed.", 409);
+
   const now = new Date();
-  const update: any = { status, resolution_note: note || null, resolved_by_platform: identity.platform, resolved_by_user_id: identity.id, resolved_by_name: identity.displayName, updated_at: now.toISOString() };
-  if (status === "completed") update.completed_at = now.toISOString();
-  else if (existing.status === "completed") update.completed_at = null;
+  let scheduledFor: string | null = null;
+  if (status === "scheduled") {
+    const candidate = body.scheduledFor || existing.scheduled_for;
+    const parsed = candidate ? new Date(String(candidate)) : null;
+    if (!parsed || !Number.isFinite(parsed.getTime()) || parsed.getTime() <= now.getTime()) throw new ApiError("Choose a future date and time before marking this request scheduled.");
+    scheduledFor = parsed.toISOString();
+  }
+  const vodUrl = status === "completed" ? youtubeUrl(body.youtubeVodUrl || existing.youtube_vod_url) : null;
+  if (status === "completed" && !vodUrl) throw new ApiError("Add a valid YouTube VOD link before marking this request completed.");
+
+  const deleteAt = new Date(now);
+  deleteAt.setUTCMonth(deleteAt.getUTCMonth() + 9);
+  const update: any = {
+    status,
+    resolution_note: note || null,
+    scheduled_for: scheduledFor,
+    youtube_vod_url: vodUrl,
+    completed_at: status === "completed" ? now.toISOString() : null,
+    discord_delete_at: status === "completed" ? deleteAt.toISOString() : null,
+    discord_deleted_at: null,
+    discord_last_error: null,
+    resolved_by_platform: identity.platform,
+    resolved_by_user_id: identity.id,
+    resolved_by_name: identity.displayName,
+    updated_at: now.toISOString(),
+  };
+  const next = { ...existing, ...update };
+
+  let route: any;
+  try { route = await routeDiscordRecord(existing, next); }
+  catch (error) {
+    const message = error instanceof Error ? error.message : "Discord routing failed.";
+    await admin.from("game_requests").update({ discord_last_error: message.slice(0, 1000) }).eq("id", id);
+    throw new ApiError("Discord could not move this request. Nothing was changed. Check the bot's channel permissions.", 502);
+  }
+  update.discord_channel_id = route.channelId;
+  update.discord_message_id = route.messageId;
+
   const { error } = await admin.from("game_requests").update(update).eq("id", id);
-  if (error?.code === "23505") throw new ApiError("Another request is already active.", 409);
-  if (error) throw new ApiError("The request could not be updated.", 500);
+  if (error) {
+    if (route.created) await removeDiscordMessage(route.channelId, route.messageId).catch(() => null);
+    if (error.code === "23505") throw new ApiError("Another request is already active.", 409);
+    throw new ApiError("The request could not be updated.", 500);
+  }
 
   if (status === "completed") {
     const cooldownUntil = new Date(now.getTime() + 14 * 24 * 60 * 60 * 1000).toISOString();
@@ -228,24 +346,51 @@ async function updateRequest(admin: any, identity: Identity, staff: any, body: a
   } else if (FINAL_STATUSES.includes(status)) {
     const { data: settings } = await admin.from("game_request_settings").select("manual_closed,manual_reopens_at,cooldown_until").eq("id", true).single();
     const blocked = Boolean(settings?.manual_closed) || Boolean(settings?.cooldown_until && new Date(settings.cooldown_until).getTime() > now.getTime());
-    await admin.from("game_request_settings").update({ requests_open: !blocked, current_request_id: null, cooldown_until: status === "completed" ? settings?.cooldown_until : null, updated_at: now.toISOString() }).eq("id", true);
+    await admin.from("game_request_settings").update({ requests_open: !blocked, current_request_id: null, cooldown_until: null, updated_at: now.toISOString() }).eq("id", true);
   } else {
     await admin.from("game_request_settings").update({ requests_open: false, current_request_id: id, updated_at: now.toISOString() }).eq("id", true);
   }
-  await admin.from("game_request_events").insert({ request_id: id, event_type: `status_${status}`, actor_twitch_user_id: identity.platform === "twitch" ? identity.id : null, details: { previous_status: existing.status, note, actor_platform: identity.platform, actor_name: identity.displayName, actor_role: staff.role } });
-  await audit(admin, identity, staff, "request_status_changed", { previous_status: existing.status, status, note }, id);
+
+  if (route.oldChannelId && route.oldMessageId) {
+    try { await removeDiscordMessage(route.oldChannelId, route.oldMessageId); }
+    catch (error) {
+      const message = error instanceof Error ? error.message : "Old Discord record could not be removed.";
+      await admin.from("game_requests").update({ discord_last_error: message.slice(0, 1000) }).eq("id", id);
+      console.error("Old Discord request record removal failed", error);
+    }
+  }
+
+  const eventDetails = { previous_status: existing.status, note, scheduled_for: scheduledFor, youtube_vod_attached: Boolean(vodUrl), actor_platform: identity.platform, actor_name: identity.displayName, actor_role: staff.role };
+  await admin.from("game_request_events").insert({ request_id: id, event_type: `status_${status}`, actor_twitch_user_id: identity.platform === "twitch" ? identity.id : null, details: eventDetails });
+  await audit(admin, identity, staff, "request_status_changed", { previous_status: existing.status, status, note, scheduled_for: scheduledFor, youtube_vod_attached: Boolean(vodUrl) }, id);
+  try {
+    const logFields: any[] = [
+      { name: "Request", value: `${requestCode(existing)} · ${existing.game_title}`, inline: false },
+      { name: "Status", value: `${displayStatus(existing.status)} → ${displayStatus(status)}`, inline: true },
+      { name: "Staff", value: `${identity.displayName} · ${staff.role}`, inline: true },
+    ];
+    if (scheduledFor) logFields.push({ name: "Scheduled For", value: discordTimestamp(scheduledFor), inline: false });
+    if (note) logFields.push({ name: "Note", value: note, inline: false });
+    await sendDiscordLog("Game Request Updated", logFields);
+  } catch (error) { console.error("Discord request log failed", error); }
   return await dashboard(admin, identity, staff);
 }
 
 async function deleteRequest(admin: any, identity: Identity, staff: any, body: any) {
   if (staff.role !== "owner") throw new ApiError("Only the owner can permanently delete archived requests.", 403);
   const id = String(body.id || "");
-  const { data: existing, error } = await admin.from("game_requests").select("id,request_number,game_title,status").eq("id", id).maybeSingle();
+  const { data: existing, error } = await admin.from("game_requests").select("id,request_number,game_title,status,discord_channel_id,discord_message_id").eq("id", id).maybeSingle();
   if (error || !existing) throw new ApiError("Archived request not found.", 404);
   if (!FINAL_STATUSES.includes(existing.status)) throw new ApiError("Only archived requests can be deleted.", 409);
   await audit(admin, identity, staff, "archived_request_deleted", { request_number: existing.request_number, game_title: existing.game_title, status: existing.status }, id);
   const result = await admin.from("game_requests").delete().eq("id", id);
   if (result.error) throw new ApiError("The archived request could not be deleted.", 500);
+  await removeDiscordMessage(existing.discord_channel_id, existing.discord_message_id).catch((discordError) => console.error("Deleted archive Discord cleanup failed", discordError));
+  await sendDiscordLog("Game Request Archive Deleted", [
+    { name: "Request", value: `${requestCode(existing)} · ${existing.game_title}`, inline: false },
+    { name: "Previous Status", value: displayStatus(existing.status), inline: true },
+    { name: "Owner", value: identity.displayName, inline: true },
+  ], 0xef4444).catch((discordError) => console.error("Discord archive deletion log failed", discordError));
   return await dashboard(admin, identity, staff);
 }
 
@@ -256,7 +401,7 @@ Deno.serve(async (request: Request) => {
     validateProjectKey(request);
     const admin = adminClient();
     const body = await request.json().catch(() => ({}));
-    if (body.action === "health") return json({ ok: true });
+    if (body.action === "health") return json({ ok: true, discordWorkflow: true, statuses: Object.keys(CHANNELS) });
     const identity = await authenticate(request);
     const staff = await getStaff(admin, identity);
     if (!staff) throw new ApiError("This account does not have Game Request staff access.", 403);

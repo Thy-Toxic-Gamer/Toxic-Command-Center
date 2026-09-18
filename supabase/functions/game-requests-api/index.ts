@@ -4,6 +4,7 @@ const TWITCH_CLIENT_ID = "ht2kbpz12tpv060f2259jn9recng0x";
 const ALLOWED_ORIGIN = "https://thy-toxic-gamer.github.io";
 const PENDING_CHANNEL_ID = "1542688040353275994";
 const APPROVED_CHANNEL_ID = "1542690394255532052";
+const LOG_CHANNEL_ID = "1543750250097938562";
 const PRICE_BY_PLAN: Record<string, number> = { Play: 5, Speed: 10, "100%": 15 };
 const ACTIVE_STATUSES = ["pending", "awaiting_payment", "approved", "scheduled"];
 const CORS_HEADERS = {
@@ -204,6 +205,31 @@ async function sendDiscordRecord(requestRow: any) {
   return { channelId, messageId: String(data.id) };
 }
 
+async function sendDiscordCreationLog(requestRow: any) {
+  const token = Deno.env.get("DISCORD_BOT_TOKEN");
+  if (!token) throw new Error("Discord bot connection is unavailable.");
+  const requestCode = `GR-${String(requestRow.request_number).padStart(6, "0")}`;
+  const response = await fetch(`https://discord.com/api/v10/channels/${LOG_CHANNEL_ID}/messages`, {
+    method: "POST",
+    headers: { Authorization: `Bot ${token}`, "Content-Type": "application/json" },
+    body: JSON.stringify({
+      allowed_mentions: { parse: [] },
+      embeds: [{
+        title: "Game Request Created",
+        color: requestRow.is_owner ? 0xb5ff18 : 0xff3b93,
+        fields: [
+          { name: "Request", value: `${requestCode} · ${requestRow.game_title}`, inline: false },
+          { name: "Requester", value: requestRow.twitch_display_name, inline: true },
+          { name: "Status", value: requestRow.status.replaceAll("_", " "), inline: true },
+          { name: "Amount", value: requestRow.is_owner ? "$0.00 · Owner" : `$${Number(requestRow.amount_due).toFixed(2)}`, inline: true },
+        ],
+        timestamp: requestRow.created_at,
+      }],
+    }),
+  });
+  if (!response.ok) throw new Error(`Discord rejected the request log (${response.status}).`);
+}
+
 async function createRequest(admin: any, identity: TwitchIdentity, isOwner: boolean, body: any) {
   const gameId = String(body.gameId ?? "").trim();
   const plan = String(body.plan ?? "").trim();
@@ -280,6 +306,7 @@ async function createRequest(admin: any, identity: TwitchIdentity, isOwner: bool
       updated_at: new Date().toISOString(),
     }).eq("id", created.id);
     discordPosted = true;
+    await sendDiscordCreationLog(created).catch((logError) => console.error("Game request Discord log failed", logError));
   } catch (error) {
     console.error("Game request Discord record failed", error);
     await admin.from("game_request_events").insert({
