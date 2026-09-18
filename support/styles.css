@@ -26,6 +26,7 @@ a { color: inherit; }
 .topbar { position: sticky; top: 0; z-index: 20; display: flex; align-items: center; justify-content: space-between; gap: 22px; padding: 14px 22px; border-bottom: 1px solid var(--line); background: rgba(6, 9, 7, .94); backdrop-filter: blur(14px); }
 .brand { display: flex; align-items: center; gap: 11px; min-width: max-content; text-decoration: none; }
 .brand-mark { display: grid; place-items: center; width: 40px; height: 40px; color: var(--green); border: 1px solid var(--line-hot); border-radius: 50%; background: var(--green-soft); box-shadow: 0 0 28px rgba(124,255,0,.15); }
+.brand-mark img { display: block; width: 28px; height: auto; object-fit: contain; }
 .brand strong, .brand em { display: block; }
 .brand strong { font-size: 14px; letter-spacing: .075em; }
 .brand em { margin-top: 2px; color: var(--muted); font-size: 10px; font-style: normal; letter-spacing: .14em; text-transform: uppercase; }

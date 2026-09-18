@@ -112,6 +112,7 @@ a { color: inherit; }
 }
 
 .brand-mark svg { width: 19px; height: 19px; }
+.brand-mark img { display: block; width: 27px; height: auto; object-fit: contain; }
 
 .brand > span:last-child { display: block; }
 

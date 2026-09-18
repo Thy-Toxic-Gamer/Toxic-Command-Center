@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#090b0a">
+  <meta name="description" content="Browse ThyToxicGamer's game catalog and prepare a stream game request.">
+  <title>Game Requests | ThyToxicGamer</title>
+  <link rel="icon" type="image/png" href="thytoxicgamer-tab-icon.png">
+  <link rel="apple-touch-icon" href="thytoxicgamer-tab-icon.png">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="https://thy-toxic-gamer.github.io/Toxic-Command-Center/" aria-label="Return to the ThyToxicGamer Command Center">
+      <img class="brand-mark" src="thytoxicgamer-tab-icon.png" alt="">
+      <span><strong>ThyToxicGamer</strong><small>Command Network</small></span>
+    </a>
+    <nav class="command-nav" aria-label="Site navigation">
+      <a href="https://thy-toxic-gamer.github.io/Toxic-Command-Center/">Command Center</a>
+      <a class="active" href="#top" aria-current="page">Game Requests</a>
+    </nav>
+    <div class="catalog-status"><span class="status-dot"></span><span id="catalogCount">Catalog loading</span></div>
+  </header>
+
+  <main id="top">
+    <section class="controls" aria-labelledby="catalogTitle">
+      <div>
+        <a class="command-return" href="https://thy-toxic-gamer.github.io/Toxic-Command-Center/">← Return to Command Center</a>
+        <p class="eyebrow">Connected module · Choose the next stream</p>
+        <h1 id="catalogTitle">Game Request Archive</h1>
+      </div>
+      <label class="search-wrap">
+        <span class="sr-only">Search games</span>
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m21 21-4.3-4.3m2.3-5.2A7.5 7.5 0 1 1 4 11.5a7.5 7.5 0 0 1 15 0Z"/></svg>
+        <input id="searchInput" type="search" placeholder="Search by title, ID, or system" autocomplete="off">
+      </label>
+    </section>
+
+    <section class="catalog-shell">
+      <aside class="filters" aria-label="Game system filters">
+        <button class="filter active" data-filter="all"><span>All games</span><b id="count-all">0</b></button>
+        <div class="filter-group">
+          <p>Owned platforms</p>
+          <button class="filter pc" data-filter="PC"><span>PC</span><b id="count-PC">0</b></button>
+          <button class="filter switch" data-filter="Nintendo Switch"><span>Nintendo Switch</span><b id="count-Nintendo-Switch">0</b></button>
+          <button class="filter ps" data-filter="PlayStation 5"><span>PS5</span><b id="count-PlayStation-5">0</b></button>
+          <button class="filter ps4" data-filter="PlayStation 4"><span>PS4</span><b id="count-PlayStation-4">0</b></button>
+          <button class="filter xbox" data-filter="Xbox Series X"><span>Xbox Series X</span><b id="count-Xbox-Series-X">0</b></button>
+          <button class="filter x360" data-filter="Xbox 360"><span>Xbox 360</span><b id="count-Xbox-360">0</b></button>
+        </div>
+        <div class="filter-group">
+          <p>Nintendo Switch Online</p>
+          <button class="filter nes" data-filter="NSO: NES"><span>NES</span><b id="count-NSO-NES">0</b></button>
+          <button class="filter snes" data-filter="NSO: SNES"><span>Super Nintendo</span><b id="count-NSO-SNES">0</b></button>
+          <button class="filter gb" data-filter="NSO: Game Boy"><span>Game Boy</span><b id="count-NSO-Game-Boy">0</b></button>
+          <button class="filter gbc" data-filter="NSO: Game Boy Color"><span>Game Boy Color</span><b id="count-NSO-Game-Boy-Color">0</b></button>
+          <button class="filter n64" data-filter="NSO: Nintendo 64"><span>Nintendo 64</span><b id="count-NSO-Nintendo-64">0</b></button>
+          <button class="filter gba" data-filter="NSO: Game Boy Advance"><span>Game Boy Advance</span><b id="count-NSO-Game-Boy-Advance">0</b></button>
+          <button class="filter genesis" data-filter="NSO: Sega Genesis"><span>Sega Genesis</span><b id="count-NSO-Sega-Genesis">0</b></button>
+          <button class="filter vb" data-filter="NSO: Virtual Boy"><span>Virtual Boy</span><b id="count-NSO-Virtual-Boy">0</b></button>
+          <button class="filter gc" data-filter="NSO: GameCube"><span>GameCube</span><b id="count-NSO-GameCube">0</b></button>
+        </div>
+        <div class="filter-group">
+          <p>Emulation</p>
+          <button class="filter emu-snes" data-filter="Emulation: SNES"><span>SNES emulator</span><b id="count-Emulation-SNES">0</b></button>
+        </div>
+      </aside>
+
+      <div class="results">
+        <div class="results-head">
+          <div><span id="resultCount">0 games</span><small id="activeLabel">All systems</small></div>
+          <select id="sortSelect" aria-label="Sort games">
+            <option value="id">Catalog order</option>
+            <option value="title">Title A–Z</option>
+            <option value="year-desc">Newest release</option>
+            <option value="year-asc">Oldest release</option>
+          </select>
+        </div>
+        <div id="gameGrid" class="game-grid" aria-live="polite"></div>
+        <div id="emptyState" class="empty" hidden>
+          <img class="empty-mark" src="thytoxicgamer-tab-icon.png" alt="">
+          <h2>No games found</h2>
+          <p>Try a different title or system.</p>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <span>THYTOXICGAMER // GAME REQUEST ARCHIVE</span>
+    <a href="https://thy-toxic-gamer.github.io/Toxic-Command-Center/">Return to Command Center</a>
+  </footer>
+
+  <dialog id="requestDialog" class="request-dialog">
+    <form method="dialog">
+      <button class="dialog-close" value="cancel" aria-label="Close request form">×</button>
+      <p class="eyebrow">Game selected</p>
+      <h2 id="requestTitle">Game request</h2>
+      <p id="requestMeta" class="dialog-meta"></p>
+      <div class="price-options" aria-label="Request type">
+        <button type="button" data-plan="Play" data-price="5"><span>Play</span><b>$5</b><small>Standard stream request</small></button>
+        <button type="button" data-plan="Speed" data-price="10"><span>Speed</span><b>$10</b><small>Focused completion run</small></button>
+        <button type="button" data-plan="100%" data-price="15"><span>100%</span><b>$15</b><small>May require multiple streams</small></button>
+      </div>
+      <p class="dialog-note">Requests run 18–24 hours on Friday evening or Saturday morning. Payment opens after approval.</p>
+      <button class="submit-request" value="cancel" disabled>Request connection coming next</button>
+    </form>
+  </dialog>
+
+  <script src="catalog.js"></script>
+  <script src="covers.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
