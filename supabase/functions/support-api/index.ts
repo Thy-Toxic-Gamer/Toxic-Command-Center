@@ -51,6 +51,7 @@ type GameRequest = {
   twitch_display_name: string;
   game_title: string;
   game_system: string;
+  game_cover_url: string | null;
   request_type: string;
   amount_due: number | string;
   payment_currency: string;
@@ -60,6 +61,11 @@ type GameRequest = {
   status: string;
   discord_channel_id: string | null;
   discord_message_id: string | null;
+  discord_log_message_id: string | null;
+  scheduled_for?: string | null;
+  resolution_note?: string | null;
+  created_at?: string;
+  updated_at?: string;
 };
 
 Deno.serve(async (request) => {
@@ -397,6 +403,7 @@ async function routePaidGameRequest(gameRequest: GameRequest) {
       { name: "Verified Amount", value: `$${Number(gameRequest.amount_due).toFixed(2)} USD`, inline: true },
       { name: "Status", value: "Approved", inline: true },
     ],
+    ...(gameRequest.game_cover_url ? { image: { url: gameRequest.game_cover_url } } : {}),
     footer: { text: `${code} · PayPal verified` },
     timestamp: new Date().toISOString(),
   };
@@ -412,15 +419,46 @@ async function routePaidGameRequest(gameRequest: GameRequest) {
     if (gameRequest.discord_channel_id && gameRequest.discord_message_id) {
       await fetch(`https://discord.com/api/v10/channels/${gameRequest.discord_channel_id}/messages/${gameRequest.discord_message_id}`, { method: "DELETE", headers: { Authorization: `Bot ${DISCORD_BOT_TOKEN}` } }).catch(() => null);
     }
-    await fetch(`https://discord.com/api/v10/channels/${GAME_LOG_CHANNEL_ID}/messages`, {
-      method: "POST",
-      headers: { Authorization: `Bot ${DISCORD_BOT_TOKEN}`, "Content-Type": "application/json" },
-      body: JSON.stringify({ allowed_mentions: { parse: [] }, embeds: [{ title: "Game Request Payment Verified", color: 0xb5ff18, fields: [{ name: "Request", value: `${code} · ${gameRequest.game_title}`, inline: false }, { name: "Requester", value: gameRequest.twitch_display_name, inline: true }, { name: "Amount", value: `$${Number(gameRequest.amount_due).toFixed(2)} USD`, inline: true }], timestamp: new Date().toISOString() }] }),
-    }).catch(() => null);
+    await syncGameRequestHistory(gameRequest.id).catch(() => null);
   } catch (error) {
     const message = error instanceof Error ? error.message.slice(0, 1000) : "Discord routing failed.";
     await db.from("game_requests").update({ discord_last_error: message }).eq("id", gameRequest.id);
   }
+}
+
+function gameEventLine(event: any) {
+  const labels: Record<string, string> = { request_submitted: "Request submitted", owner_request_approved: "Owner request submitted and approved", paypal_order_created: "PayPal checkout opened", payment_completed: "PayPal payment verified", game_change_requested: "Viewer requested a game change", game_change_applied: "Game change applied", game_change_denied: "Game change denied" };
+  const type = String(event.event_type || "");
+  const label = labels[type] || (type.startsWith("status_") ? `Status changed to ${type.slice(7).replaceAll("_", " ")}` : type.replaceAll("_", " "));
+  const details = event.details || {};
+  const extras = [details.actor_name, details.note, details.new_game_title ? `New game: ${details.new_game_title}` : null, details.scheduled_for ? `Scheduled: <t:${Math.floor(new Date(details.scheduled_for).getTime() / 1000)}:F>` : null].filter(Boolean);
+  return `• <t:${Math.floor(new Date(event.created_at).getTime() / 1000)}:f> — **${label}**${extras.length ? ` · ${extras.join(" · ")}` : ""}`;
+}
+
+async function syncGameRequestHistory(requestId: string) {
+  if (!DISCORD_BOT_TOKEN) return;
+  const [{ data: row }, { data: events }] = await Promise.all([
+    db.from("game_requests").select("*").eq("id", requestId).single(),
+    db.from("game_request_events").select("event_type,details,created_at").eq("request_id", requestId).order("created_at", { ascending: true }).limit(500),
+  ]);
+  if (!row) return;
+  const code = `GR-${String(row.request_number).padStart(6, "0")}`;
+  const summary: any = { title: `Game Request History · ${code}`, color: 0xb5ff18, fields: [{ name: "Current Game", value: `${row.game_title}\n${row.game_system}`, inline: false }, { name: "Requester", value: row.twitch_display_name, inline: true }, { name: "Request Type", value: row.request_type, inline: true }, { name: "Current Status", value: String(row.status).replaceAll("_", " "), inline: true }], ...(row.game_cover_url ? { thumbnail: { url: row.game_cover_url } } : {}), footer: { text: "This single log is updated through the final outcome." }, timestamp: row.updated_at || row.created_at };
+  if (row.scheduled_for) summary.fields.push({ name: "Scheduled For", value: `<t:${Math.floor(new Date(row.scheduled_for).getTime() / 1000)}:F>`, inline: false });
+  if (row.resolution_note) summary.fields.push({ name: "Outcome Reason", value: String(row.resolution_note).slice(0, 1024), inline: false });
+  const lines = (events || []).filter((event: any) => event.event_type !== "discord_record_failed").map(gameEventLine);
+  const chunks: string[] = [];
+  let chunk = "";
+  for (const line of lines) { if (chunk && chunk.length + line.length + 1 > 3900) { chunks.push(chunk); chunk = ""; } chunk += `${chunk ? "\n" : ""}${line}`; }
+  if (chunk || !chunks.length) chunks.push(chunk || "No history recorded yet.");
+  const payload = JSON.stringify({ allowed_mentions: { parse: [] }, embeds: [summary, ...chunks.slice(0, 9).map((description, index) => ({ title: index ? `Timeline continued ${index + 1}` : "Complete Timeline", color: 0x252b26, description }))] });
+  if (row.discord_log_message_id) {
+    const updated = await fetch(`https://discord.com/api/v10/channels/${GAME_LOG_CHANNEL_ID}/messages/${row.discord_log_message_id}`, { method: "PATCH", headers: { Authorization: `Bot ${DISCORD_BOT_TOKEN}`, "Content-Type": "application/json" }, body: payload });
+    if (updated.ok) return;
+  }
+  const response = await fetch(`https://discord.com/api/v10/channels/${GAME_LOG_CHANNEL_ID}/messages`, { method: "POST", headers: { Authorization: `Bot ${DISCORD_BOT_TOKEN}`, "Content-Type": "application/json" }, body: payload });
+  const created = await response.json().catch(() => ({}));
+  if (response.ok && created.id) await db.from("game_requests").update({ discord_log_message_id: String(created.id) }).eq("id", requestId);
 }
 
 async function updateGameRequestPaymentState(gameRequest: GameRequest, eventType: string, captureId: string | null) {

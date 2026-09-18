@@ -47,6 +47,7 @@ create table if not exists public.game_catalog (
   id text primary key,
   title text not null,
   system text not null,
+  cover_url text,
   requestable boolean not null default true,
   updated_at timestamptz not null default now()
 );
@@ -61,6 +62,7 @@ create table if not exists public.game_requests (
   game_id text not null references public.game_catalog(id),
   game_title text not null,
   game_system text not null,
+  game_cover_url text,
   request_type text not null check (request_type in ('Play', 'Speed', '100%')),
   base_price numeric(8,2) not null check (base_price >= 0),
   amount_due numeric(8,2) not null check (amount_due >= 0),
@@ -76,6 +78,7 @@ create table if not exists public.game_requests (
   status text not null check (status in ('pending', 'awaiting_payment', 'approved', 'scheduled', 'completed', 'denied', 'cancelled', 'expired')),
   discord_channel_id text,
   discord_message_id text,
+  discord_log_message_id text,
   discord_delete_at timestamptz,
   discord_deleted_at timestamptz,
   discord_last_error text,
@@ -86,14 +89,23 @@ create table if not exists public.game_requests (
   resolved_by_user_id text,
   resolved_by_name text,
   resolution_note text,
+  viewer_change_count integer not null default 0 check (viewer_change_count >= 0 and viewer_change_count <= 1),
+  pending_change_game_id text references public.game_catalog(id),
+  pending_change_game_title text,
+  pending_change_game_system text,
+  pending_change_cover_url text,
+  pending_change_requested_at timestamptz,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
 
+alter table public.game_catalog add column if not exists cover_url text;
 alter table public.game_requests add column if not exists completed_at timestamptz;
+alter table public.game_requests add column if not exists game_cover_url text;
 alter table public.game_requests add column if not exists discord_delete_at timestamptz;
 alter table public.game_requests add column if not exists discord_deleted_at timestamptz;
 alter table public.game_requests add column if not exists discord_last_error text;
+alter table public.game_requests add column if not exists discord_log_message_id text;
 alter table public.game_requests add column if not exists scheduled_for timestamptz;
 alter table public.game_requests add column if not exists youtube_vod_url text;
 alter table public.game_requests add column if not exists payment_currency text not null default 'USD';
@@ -107,6 +119,12 @@ alter table public.game_requests add column if not exists resolved_by_platform t
 alter table public.game_requests add column if not exists resolved_by_user_id text;
 alter table public.game_requests add column if not exists resolved_by_name text;
 alter table public.game_requests add column if not exists resolution_note text;
+alter table public.game_requests add column if not exists viewer_change_count integer not null default 0;
+alter table public.game_requests add column if not exists pending_change_game_id text references public.game_catalog(id);
+alter table public.game_requests add column if not exists pending_change_game_title text;
+alter table public.game_requests add column if not exists pending_change_game_system text;
+alter table public.game_requests add column if not exists pending_change_cover_url text;
+alter table public.game_requests add column if not exists pending_change_requested_at timestamptz;
 
 create index if not exists game_requests_twitch_user_idx
   on public.game_requests (twitch_user_id, created_at desc);

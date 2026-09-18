@@ -107,6 +107,15 @@ h1 { margin: 0; font-size: clamp(2.25rem, 5vw, 4.6rem); letter-spacing: -.045em;
 .request-status--closed .request-status-light { background: var(--pink); box-shadow: 0 0 16px var(--pink); }
 .request-status--loading .request-status-light { background: #879087; box-shadow: none; }
 
+.public-schedule { display: grid; grid-template-columns: 92px minmax(0, 1fr) auto; align-items: center; gap: 16px; margin: -10px 0 24px; padding: 12px; border: 1px solid rgba(88,101,242,.55); border-left: 4px solid #5865f2; background: linear-gradient(100deg, rgba(88,101,242,.12), rgba(14,18,15,.98) 44%); }
+.public-schedule[hidden] { display: none; }
+.public-schedule img { width: 92px; height: 58px; border-radius: 7px; object-fit: contain; background: #080a09; }
+.public-schedule small, .public-schedule strong { display: block; }
+.public-schedule small { color: #aeb7d8; font-size: .65rem; font-weight: 900; letter-spacing: .13em; text-transform: uppercase; }
+.public-schedule strong { margin-top: 3px; font-size: 1rem; }
+.public-schedule p { margin: 4px 0 0; color: #bdc5be; font-size: .77rem; }
+.public-schedule time { min-width: 210px; padding: 10px 13px; border: 1px solid rgba(88,101,242,.55); border-radius: 9px; background: rgba(0,0,0,.32); color: #fff; font-size: .8rem; font-weight: 900; text-align: center; }
+
 .viewer-request-panel { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 10px 22px; margin: -10px 0 24px; padding: 16px 18px; border: 1px solid #3a463b; border-left: 4px solid #ffc107; background: linear-gradient(100deg, rgba(255,193,7,.09), rgba(14,18,15,.98) 42%); }
 .viewer-request-panel[hidden] { display: none; }
 .viewer-request-panel small, .viewer-request-panel strong { display: block; }
@@ -235,6 +244,9 @@ h1 { margin: 0; font-size: clamp(2.25rem, 5vw, 4.6rem); letter-spacing: -.045em;
   .viewer-request-panel { grid-template-columns: 1fr; }
   .viewer-request-payment { justify-content: flex-start; flex-wrap: wrap; }
   .viewer-request-message { grid-column: 1; }
+  .public-schedule { grid-template-columns: 72px 1fr; }
+  .public-schedule img { width: 72px; height: 50px; }
+  .public-schedule time { grid-column: 1 / -1; min-width: 0; }
   main { padding-inline: 14px; }
   .game-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 9px; }
   .game-card { min-height: 300px; }

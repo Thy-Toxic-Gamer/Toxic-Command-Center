@@ -114,14 +114,18 @@
 
   function requestCard(row) {
     const statuses = ["pending", "awaiting_payment", "approved", "scheduled", "completed", "denied", "cancelled", "expired"];
+    const gameOptions = (dashboardData?.catalog || []).map((game) => `<option value="${escapeHtml(game.id)}"${game.id === row.game_id ? " selected" : ""}>${escapeHtml(game.title)} · ${escapeHtml(game.system)}</option>`).join("");
     return `<article class="staff-request" data-request-id="${escapeHtml(row.id)}">
-      <div><h3>${escapeHtml(row.game_title)}</h3><div class="staff-request-meta"><span>${requestCode(row)}</span><span>${escapeHtml(row.game_system)}</span><span>${escapeHtml(row.request_type)}</span><span>${escapeHtml(row.status.replaceAll("_", " "))}</span><span>${row.is_owner ? "$0 · Owner" : `$${Number(row.amount_due).toFixed(2)}`}</span><span>${row.is_owner ? "Payment exempt" : row.paypal_status === "COMPLETED" ? "PayPal verified" : "Payment pending"}</span><span>${escapeHtml(row.twitch_display_name)}</span></div><p>Submitted ${formatDate(row.created_at)}${row.payment_completed_at ? ` · Paid ${formatDate(row.payment_completed_at)}` : ""}</p></div>
+      <div class="staff-request-summary">${row.game_cover_url ? `<img class="staff-request-cover" src="${escapeHtml(row.game_cover_url)}" alt="${escapeHtml(row.game_title)} cover art">` : ""}<div><h3>${escapeHtml(row.game_title)}</h3><div class="staff-request-meta"><span>${requestCode(row)}</span><span>${escapeHtml(row.game_system)}</span><span>${escapeHtml(row.request_type)}</span><span>${escapeHtml(row.status.replaceAll("_", " "))}</span><span>${row.is_owner ? "$0 · Owner" : `$${Number(row.amount_due).toFixed(2)}`}</span><span>${row.is_owner ? "Payment exempt" : row.paypal_status === "COMPLETED" ? "PayPal verified" : "Payment pending"}</span><span>${escapeHtml(row.twitch_display_name)}</span></div><p>Submitted ${formatDate(row.created_at)}${row.payment_completed_at ? ` · Paid ${formatDate(row.payment_completed_at)}` : ""}</p></div></div>
       <div class="request-actions">
+        ${row.pending_change_game_id ? `<div class="pending-game-change"><strong>Viewer game change requested</strong><span>${escapeHtml(row.pending_change_game_title)} · ${escapeHtml(row.pending_change_game_system)}</span><div><button type="button" data-resolve-change="apply">Apply change</button><button class="change-deny" type="button" data-resolve-change="deny">Deny change</button></div></div>` : ""}
         <label class="action-field"><span>Status</span><select data-request-status aria-label="Request status">${statuses.map((status) => `<option value="${status}"${status === row.status ? " selected" : ""}>${status.replaceAll("_", " ")}</option>`).join("")}</select></label>
         <button type="button" data-update-request>Update request</button>
         <label class="action-field status-field schedule-field"${row.status === "scheduled" ? "" : " hidden"}><span>Scheduled date and time</span><input data-scheduled-for type="datetime-local" value="${escapeHtml(localDateTimeValue(row.scheduled_for))}"></label>
         <label class="action-field status-field vod-field" hidden><span>YouTube VOD link</span><input data-youtube-vod type="url" inputmode="url" maxlength="500" placeholder="https://youtube.com/watch?v=…"></label>
         <label class="action-field note-field"><span>Staff note <small>optional</small></span><input data-staff-note maxlength="1000" placeholder="Reason or update details"></label>
+        <label class="action-field game-change-field"><span>Staff game correction <small>unlimited</small></span><select data-game-change>${gameOptions}</select></label>
+        <button class="change-game" type="button" data-change-game>Change game</button>
       </div>
     </article>`;
   }
@@ -136,6 +140,8 @@
     vod.hidden = status !== "completed";
     scheduledInput.required = status === "scheduled";
     vodInput.required = status === "completed";
+    card.querySelector("[data-staff-note]").required = status === "cancelled";
+    card.querySelector(".note-field > span").innerHTML = status === "cancelled" ? "Cancellation reason <small>required</small>" : "Staff note <small>optional</small>";
     scheduledInput.min = localDateTimeValue(new Date(Date.now() + 60000).toISOString());
   }
 
@@ -196,6 +202,21 @@
     catch (error) { setNotice(error.message, true); }
   });
   queue.addEventListener("click", async (event) => {
+    const changeButton = event.target.closest("[data-change-game]");
+    const resolveButton = event.target.closest("[data-resolve-change]");
+    if (changeButton || resolveButton) {
+      const card = (changeButton || resolveButton).closest("[data-request-id]");
+      const note = card.querySelector("[data-staff-note]").value.trim();
+      const mode = resolveButton ? resolveButton.dataset.resolveChange : "direct";
+      if (mode === "deny" && !note) { setNotice("Add a reason before denying the viewer's game change.", true); card.querySelector("[data-staff-note]").focus(); return; }
+      const button = changeButton || resolveButton;
+      button.disabled = true;
+      try {
+        render(await api("change_game", { id: card.dataset.requestId, mode, gameId: card.querySelector("[data-game-change]").value, note }));
+        setNotice(mode === "deny" ? "Viewer game change denied and added to the request history." : "Game changed in the website, Discord record, and request history.");
+      } catch (error) { setNotice(error.message, true); button.disabled = false; }
+      return;
+    }
     const button = event.target.closest("[data-update-request]");
     if (!button) return;
     const card = button.closest("[data-request-id]");

@@ -20,7 +20,7 @@ const CHANNELS: Record<string, string> = {
 const LOG_CHANNEL_ID = "1543750250097938562";
 const DISCORD_ADMINISTRATOR = 1n << 3n;
 const DISCORD_STAFF_PERMISSIONS = (1n << 1n) | (1n << 2n) | (1n << 5n) | (1n << 13n) | (1n << 40n);
-const REQUEST_SELECT = "id,request_number,twitch_display_name,twitch_login,game_id,game_title,game_system,request_type,base_price,amount_due,is_owner,payment_required,paypal_status,payment_completed_at,status,created_at,updated_at,completed_at,resolution_note,scheduled_for";
+const REQUEST_SELECT = "id,request_number,twitch_display_name,twitch_login,game_id,game_title,game_system,game_cover_url,request_type,base_price,amount_due,is_owner,payment_required,paypal_status,payment_completed_at,status,created_at,updated_at,completed_at,resolution_note,scheduled_for,viewer_change_count,pending_change_game_id,pending_change_game_title,pending_change_game_system,pending_change_cover_url,pending_change_requested_at";
 const CORS_HEADERS = {
   "Access-Control-Allow-Origin": ALLOWED_ORIGIN,
   "Access-Control-Allow-Headers": "authorization, apikey, content-type, x-game-platform",
@@ -174,7 +174,7 @@ async function availability(admin: any) {
     const result = await admin.from("game_request_settings").update({ manual_closed: false, manual_reopens_at: null, requests_open: true, updated_at: new Date().toISOString() }).eq("id", true).select("*").single();
     if (!result.error) settings = result.data;
   }
-  const { data: activeRows, error: activeError } = await admin.from("game_requests").select("id,request_number,game_title,status").in("status", ACTIVE_STATUSES).order("created_at").limit(1);
+  const { data: activeRows, error: activeError } = await admin.from("game_requests").select("id,request_number,game_id,game_title,game_system,game_cover_url,status,scheduled_for").in("status", ACTIVE_STATUSES).order("created_at").limit(1);
   if (activeError) throw new ApiError("Active requests could not be checked.", 500);
   const active = activeRows?.[0] ?? null;
   const manual = settings.manual_closed && (!settings.manual_reopens_at || new Date(settings.manual_reopens_at).getTime() > now);
@@ -184,7 +184,7 @@ async function availability(admin: any) {
   if (active) { mode = "active_request"; message = `Requests are closed while ${active.game_title} is being processed.`; }
   else if (manual) { mode = "manual"; message = settings.closed_message; reopensAt = settings.manual_reopens_at; }
   else if (cooldown) { mode = "cooldown"; message = "The streamer is resting after the previous request."; reopensAt = settings.cooldown_until; }
-  return { open, mode, message, reopensAt, activeRequest: active ? { id: active.id, code: `GR-${String(active.request_number).padStart(6, "0")}`, gameTitle: active.game_title, status: active.status } : null };
+  return { open, mode, message, reopensAt, activeRequest: active ? { id: active.id, code: `GR-${String(active.request_number).padStart(6, "0")}`, gameId: active.game_id, gameTitle: active.game_title, gameSystem: active.game_system, coverUrl: active.game_cover_url, status: active.status, scheduledFor: active.scheduled_for } : null };
 }
 
 function requestCode(row: any) { return `GR-${String(row.request_number).padStart(6, "0")}`; }
@@ -215,8 +215,9 @@ function requestEmbed(row: any) {
   if (row.scheduled_for) fields.push({ name: "Scheduled For", value: discordTimestamp(row.scheduled_for), inline: false });
   if (row.status === "completed" && row.youtube_vod_url) fields.push({ name: "YouTube VOD", value: `[Watch the completed request](${row.youtube_vod_url})`, inline: false });
   if (row.resolution_note) fields.push({ name: "Staff Note", value: String(row.resolution_note).slice(0, 1000), inline: false });
+  if (row.pending_change_game_id) fields.push({ name: "Requested Game Change", value: `${row.pending_change_game_title}\n${row.pending_change_game_system}\nWaiting for staff review`, inline: false });
   fields.push({ name: "Catalog ID", value: row.game_id, inline: true });
-  return { title: titles[row.status] || "Game Request", color: colors[row.status] || 0xb5ff18, fields, footer: { text: requestCode(row) }, timestamp: row.updated_at || row.created_at };
+  return { title: titles[row.status] || "Game Request", color: colors[row.status] || 0xb5ff18, fields, ...(row.game_cover_url ? { image: { url: row.game_cover_url } } : {}), footer: { text: requestCode(row) }, timestamp: row.updated_at || row.created_at };
 }
 
 async function routeDiscordRecord(existing: any, next: any) {
@@ -244,18 +245,56 @@ async function sendDiscordLog(title: string, fields: any[], color = 0xb5ff18) {
   });
 }
 
+function eventLine(event: any) {
+  const labels: Record<string, string> = { request_submitted: "Request submitted", owner_request_approved: "Owner request submitted and approved", paypal_order_created: "PayPal checkout opened", payment_completed: "PayPal payment verified", game_change_requested: "Viewer requested a game change", game_change_applied: "Game change applied", game_change_denied: "Game change denied" };
+  const type = String(event.event_type || "");
+  const label = labels[type] || (type.startsWith("status_") ? `Status changed to ${type.slice(7).replaceAll("_", " ")}` : type.replaceAll("_", " "));
+  const details = event.details || {};
+  const extras = [details.actor_name, details.note, details.new_game_title ? `New game: ${details.new_game_title}` : null, details.scheduled_for ? `Scheduled: ${discordTimestamp(details.scheduled_for)}` : null].filter(Boolean);
+  return `• <t:${Math.floor(new Date(event.created_at).getTime() / 1000)}:f> — **${label}**${extras.length ? ` · ${extras.join(" · ")}` : ""}`;
+}
+
+function historyEmbeds(row: any, events: any[]) {
+  const summary: any = { title: `Game Request History · ${requestCode(row)}`, color: row.status === "completed" ? 0x22c55e : row.status === "denied" ? 0xef4444 : row.status === "cancelled" ? 0x94a3b8 : 0xb5ff18, fields: [{ name: "Current Game", value: `${row.game_title}\n${row.game_system}`, inline: false }, { name: "Requester", value: row.twitch_display_name, inline: true }, { name: "Request Type", value: row.request_type, inline: true }, { name: "Current Status", value: displayStatus(row.status), inline: true }], ...(row.game_cover_url ? { thumbnail: { url: row.game_cover_url } } : {}), footer: { text: "This single log is updated through the final outcome." }, timestamp: row.updated_at || row.created_at };
+  if (row.scheduled_for) summary.fields.push({ name: "Scheduled For", value: discordTimestamp(row.scheduled_for), inline: false });
+  if (row.resolution_note) summary.fields.push({ name: "Outcome Reason", value: String(row.resolution_note).slice(0, 1024), inline: false });
+  const lines = events.filter((event) => event.event_type !== "discord_record_failed").map(eventLine);
+  const chunks: string[] = [];
+  let chunk = "";
+  for (const line of lines) { if (chunk && chunk.length + line.length + 1 > 3900) { chunks.push(chunk); chunk = ""; } chunk += `${chunk ? "\n" : ""}${line}`; }
+  if (chunk || !chunks.length) chunks.push(chunk || "No history recorded yet.");
+  return [summary, ...chunks.slice(0, 9).map((description, index) => ({ title: index ? `Timeline continued ${index + 1}` : "Complete Timeline", color: 0x252b26, description }))];
+}
+
+async function syncDiscordHistoryLog(admin: any, requestId: string) {
+  const [{ data: row, error: rowError }, { data: events, error: eventsError }] = await Promise.all([
+    admin.from("game_requests").select("*").eq("id", requestId).single(),
+    admin.from("game_request_events").select("event_type,details,created_at").eq("request_id", requestId).order("created_at", { ascending: true }).limit(500),
+  ]);
+  if (rowError || eventsError || !row) throw new Error("Game request history could not be loaded.");
+  const payload = JSON.stringify({ allowed_mentions: { parse: [] }, embeds: historyEmbeds(row, events || []) });
+  if (row.discord_log_message_id) {
+    const updated = await discordRequest(`/channels/${LOG_CHANNEL_ID}/messages/${row.discord_log_message_id}`, { method: "PATCH", body: payload }, true);
+    if (updated?.id) return;
+  }
+  const created = await discordRequest(`/channels/${LOG_CHANNEL_ID}/messages`, { method: "POST", body: payload });
+  if (!created?.id) throw new Error("Discord did not return a request history message ID.");
+  await admin.from("game_requests").update({ discord_log_message_id: String(created.id) }).eq("id", requestId);
+}
+
 async function audit(admin: any, identity: Identity, staff: any, eventType: string, details: any, requestId: string | null = null) {
   await admin.from("game_request_system_events").insert({ event_type: eventType, actor_platform: identity.platform, actor_user_id: identity.id, actor_name: identity.displayName, actor_role: staff.role, request_id: requestId, details });
 }
 
 async function dashboard(admin: any, identity: Identity, staff: any) {
-  const [state, queueResult, archiveResult] = await Promise.all([
+  const [state, queueResult, archiveResult, catalogResult] = await Promise.all([
     availability(admin),
     admin.from("game_requests").select(REQUEST_SELECT).in("status", ACTIVE_STATUSES).order("created_at", { ascending: false }).limit(100),
     admin.from("game_requests").select(REQUEST_SELECT).in("status", FINAL_STATUSES).order("updated_at", { ascending: false }).limit(250),
+    admin.from("game_catalog").select("id,title,system,cover_url").eq("requestable", true).order("title", { ascending: true }),
   ]);
-  if (queueResult.error || archiveResult.error) throw new ApiError("Game Request records could not be loaded.", 500);
-  return { staff: { platform: identity.platform, displayName: identity.displayName, avatarUrl: identity.avatarUrl, role: staff.role }, availability: state, queue: queueResult.data ?? [], archive: archiveResult.data ?? [] };
+  if (queueResult.error || archiveResult.error || catalogResult.error) throw new ApiError("Game Request records could not be loaded.", 500);
+  return { staff: { platform: identity.platform, displayName: identity.displayName, avatarUrl: identity.avatarUrl, role: staff.role }, availability: state, queue: queueResult.data ?? [], archive: archiveResult.data ?? [], catalog: catalogResult.data ?? [] };
 }
 
 async function setAvailability(admin: any, identity: Identity, staff: any, body: any) {
@@ -293,6 +332,7 @@ async function updateRequest(admin: any, identity: Identity, staff: any, body: a
   const { data: existing, error: existingError } = await admin.from("game_requests").select("*").eq("id", id).maybeSingle();
   if (existingError || !existing) throw new ApiError("Request not found.", 404);
   if (FINAL_STATUSES.includes(existing.status)) throw new ApiError("Archived requests cannot be changed.", 409);
+  if (status === "cancelled" && !note) throw new ApiError("A cancellation reason is required.");
   if (!existing.is_owner && ["approved", "scheduled", "completed"].includes(status) && existing.paypal_status !== "COMPLETED") {
     throw new ApiError("Payment must be verified before this request can be approved, scheduled, or completed.", 409);
   }
@@ -366,29 +406,78 @@ async function updateRequest(admin: any, identity: Identity, staff: any, body: a
   const eventDetails = { previous_status: existing.status, note, scheduled_for: scheduledFor, youtube_vod_attached: Boolean(vodUrl), actor_platform: identity.platform, actor_name: identity.displayName, actor_role: staff.role };
   await admin.from("game_request_events").insert({ request_id: id, event_type: `status_${status}`, actor_twitch_user_id: identity.platform === "twitch" ? identity.id : null, details: eventDetails });
   await audit(admin, identity, staff, "request_status_changed", { previous_status: existing.status, status, note, scheduled_for: scheduledFor, youtube_vod_attached: Boolean(vodUrl) }, id);
-  try {
-    const logFields: any[] = [
-      { name: "Request", value: `${requestCode(existing)} · ${existing.game_title}`, inline: false },
-      { name: "Status", value: `${displayStatus(existing.status)} → ${displayStatus(status)}`, inline: true },
-      { name: "Staff", value: `${identity.displayName} · ${staff.role}`, inline: true },
-    ];
-    if (scheduledFor) logFields.push({ name: "Scheduled For", value: discordTimestamp(scheduledFor), inline: false });
-    if (note) logFields.push({ name: "Note", value: note, inline: false });
-    await sendDiscordLog("Game Request Updated", logFields);
-  } catch (error) { console.error("Discord request log failed", error); }
+  await syncDiscordHistoryLog(admin, id).catch((error) => console.error("Discord request history update failed", error));
+  return await dashboard(admin, identity, staff);
+}
+
+async function changeGame(admin: any, identity: Identity, staff: any, body: any) {
+  const id = String(body.id || "");
+  const mode = String(body.mode || "direct");
+  const note = String(body.note || "").trim().slice(0, 1000);
+  if (!/^[0-9a-f-]{36}$/i.test(id)) throw new ApiError("Request not found.", 404);
+  if (!new Set(["direct", "apply", "deny"]).has(mode)) throw new ApiError("Choose a valid game-change action.");
+  const { data: existing, error } = await admin.from("game_requests").select("*").eq("id", id).maybeSingle();
+  if (error || !existing) throw new ApiError("Request not found.", 404);
+  if (FINAL_STATUSES.includes(existing.status)) throw new ApiError("Archived requests cannot be changed.", 409);
+  if ((mode === "apply" || mode === "deny") && !existing.pending_change_game_id) throw new ApiError("There is no viewer game change waiting for review.", 409);
+  if (mode === "deny" && !note) throw new ApiError("Add a reason for denying the viewer's game change.");
+
+  let next: any;
+  let eventType: string;
+  let details: any;
+  if (mode === "deny") {
+    next = { ...existing, pending_change_game_id: null, pending_change_game_title: null, pending_change_game_system: null, pending_change_cover_url: null, pending_change_requested_at: null, updated_at: new Date().toISOString() };
+    eventType = "game_change_denied";
+    details = { actor_name: identity.displayName, actor_role: staff.role, requested_game_title: existing.pending_change_game_title, note };
+  } else {
+    const gameId = mode === "apply" ? existing.pending_change_game_id : String(body.gameId || "");
+    const { data: game, error: gameError } = await admin.from("game_catalog").select("id,title,system,cover_url,requestable").eq("id", gameId).maybeSingle();
+    if (gameError) throw new ApiError("The replacement game could not be checked.", 500);
+    if (!game || !game.requestable) throw new ApiError("Choose an available replacement game.");
+    if (game.id === existing.game_id) throw new ApiError("Choose a different game.");
+    next = { ...existing, game_id: game.id, game_title: game.title, game_system: game.system, game_cover_url: game.cover_url, pending_change_game_id: null, pending_change_game_title: null, pending_change_game_system: null, pending_change_cover_url: null, pending_change_requested_at: null, ...(existing.paypal_status === "COMPLETED" ? {} : { paypal_order_id: null, paypal_status: null, payment_error: null, payment_attempts: 0 }), updated_at: new Date().toISOString() };
+    eventType = "game_change_applied";
+    details = { actor_name: identity.displayName, actor_role: staff.role, previous_game_title: existing.game_title, new_game_title: game.title, source: mode === "apply" ? "viewer_request" : "staff_direct", note };
+  }
+
+  let route: any;
+  try { route = await routeDiscordRecord(existing, next); }
+  catch (discordError) { throw new ApiError("Discord could not update the request game. Nothing was changed.", 502); }
+  const update: any = {
+    game_id: next.game_id,
+    game_title: next.game_title,
+    game_system: next.game_system,
+    game_cover_url: next.game_cover_url,
+    pending_change_game_id: null,
+    pending_change_game_title: null,
+    pending_change_game_system: null,
+    pending_change_cover_url: null,
+    pending_change_requested_at: null,
+    discord_channel_id: route.channelId,
+    discord_message_id: route.messageId,
+    updated_at: next.updated_at,
+  };
+  if (existing.paypal_status !== "COMPLETED" && mode !== "deny") Object.assign(update, { paypal_order_id: null, paypal_status: null, payment_error: null, payment_attempts: 0 });
+  const updated = await admin.from("game_requests").update(update).eq("id", id);
+  if (updated.error) throw new ApiError("The request game could not be changed.", 500);
+  if (route.oldChannelId && route.oldMessageId) await removeDiscordMessage(route.oldChannelId, route.oldMessageId).catch(() => null);
+  await admin.from("game_request_events").insert({ request_id: id, event_type: eventType, actor_twitch_user_id: identity.platform === "twitch" ? identity.id : null, details });
+  await audit(admin, identity, staff, eventType, details, id);
+  await syncDiscordHistoryLog(admin, id).catch((historyError) => console.error("Discord request history update failed", historyError));
   return await dashboard(admin, identity, staff);
 }
 
 async function deleteRequest(admin: any, identity: Identity, staff: any, body: any) {
   if (staff.role !== "owner") throw new ApiError("Only the owner can permanently delete archived requests.", 403);
   const id = String(body.id || "");
-  const { data: existing, error } = await admin.from("game_requests").select("id,request_number,game_title,status,discord_channel_id,discord_message_id").eq("id", id).maybeSingle();
+  const { data: existing, error } = await admin.from("game_requests").select("id,request_number,game_title,status,discord_channel_id,discord_message_id,discord_log_message_id").eq("id", id).maybeSingle();
   if (error || !existing) throw new ApiError("Archived request not found.", 404);
   if (!FINAL_STATUSES.includes(existing.status)) throw new ApiError("Only archived requests can be deleted.", 409);
   await audit(admin, identity, staff, "archived_request_deleted", { request_number: existing.request_number, game_title: existing.game_title, status: existing.status }, id);
   const result = await admin.from("game_requests").delete().eq("id", id);
   if (result.error) throw new ApiError("The archived request could not be deleted.", 500);
   await removeDiscordMessage(existing.discord_channel_id, existing.discord_message_id).catch((discordError) => console.error("Deleted archive Discord cleanup failed", discordError));
+  await removeDiscordMessage(LOG_CHANNEL_ID, existing.discord_log_message_id).catch((discordError) => console.error("Deleted archive Discord history cleanup failed", discordError));
   await sendDiscordLog("Game Request Archive Deleted", [
     { name: "Request", value: `${requestCode(existing)} · ${existing.game_title}`, inline: false },
     { name: "Previous Status", value: displayStatus(existing.status), inline: true },
@@ -412,6 +501,7 @@ Deno.serve(async (request: Request) => {
       case "dashboard": return json(await dashboard(admin, identity, staff));
       case "set_availability": return json(await setAvailability(admin, identity, staff, body));
       case "update_request": return json(await updateRequest(admin, identity, staff, body));
+      case "change_game": return json(await changeGame(admin, identity, staff, body));
       case "delete_request": return json(await deleteRequest(admin, identity, staff, body));
       default: throw new ApiError("Unknown action.", 404);
     }

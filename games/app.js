@@ -38,6 +38,11 @@
   const availabilityTitle = document.querySelector("#availabilityTitle");
   const availabilityMessage = document.querySelector("#availabilityMessage");
   const availabilityCountdown = document.querySelector("#availabilityCountdown");
+  const publicSchedule = document.querySelector("#publicSchedule");
+  const publicScheduleCover = document.querySelector("#publicScheduleCover");
+  const publicScheduleGame = document.querySelector("#publicScheduleGame");
+  const publicScheduleMeta = document.querySelector("#publicScheduleMeta");
+  const publicScheduleDate = document.querySelector("#publicScheduleDate");
   const viewerRequestPanel = document.querySelector("#viewerRequestPanel");
   const viewerRequestTitle = document.querySelector("#viewerRequestTitle");
   const viewerRequestMeta = document.querySelector("#viewerRequestMeta");
@@ -146,6 +151,24 @@
       availabilityCountdown.hidden = true;
       availabilityCountdown.textContent = "";
     }
+    const active = state.activeRequest;
+    publicSchedule.hidden = !active;
+    if (active) {
+      publicScheduleGame.textContent = active.gameTitle;
+      publicScheduleMeta.textContent = `${active.code} · ${active.gameSystem} · ${statusLabel(active.status)}`;
+      if (active.coverUrl) {
+        publicScheduleCover.src = active.coverUrl;
+        publicScheduleCover.alt = `${active.gameTitle} cover art`;
+        publicScheduleCover.hidden = false;
+      } else {
+        publicScheduleCover.removeAttribute("src");
+        publicScheduleCover.alt = "";
+        publicScheduleCover.hidden = true;
+      }
+      publicScheduleDate.textContent = active.scheduledFor
+        ? `Scheduled ${new Intl.DateTimeFormat(undefined, { dateStyle: "full", timeStyle: "short" }).format(new Date(active.scheduledFor))}`
+        : "Schedule date not selected yet";
+    }
   }
 
   async function loadAvailability() {
@@ -207,6 +230,7 @@
     viewerRequestPay.disabled = false;
     viewerRequestPay.textContent = paymentMode === "sandbox" ? "Test with PayPal Sandbox" : "Pay securely with PayPal";
     if (message) viewerRequestMessage.textContent = message;
+    else if (request.pendingChange) viewerRequestMessage.textContent = `Your one game change to ${request.pendingChange.gameTitle} is waiting for staff review.`;
     else if (request.status === "pending") viewerRequestMessage.textContent = "Staff is reviewing this request. Payment will open only after staff moves it to Awaiting Payment.";
     else if (request.status === "awaiting_payment") viewerRequestMessage.textContent = paymentMode === "sandbox" ? "Checkout is connected in PayPal Sandbox test mode. No live money will be charged." : "Your request is ready for secure PayPal checkout.";
     else if (request.paypalStatus === "COMPLETED") viewerRequestMessage.textContent = "PayPal verified the payment and the request is approved.";
@@ -227,6 +251,7 @@
       viewerRequest = data.request;
       paymentMode = data.paymentMode;
       renderViewerRequest();
+      render();
       if (!handleReturn) return;
       const params = new URLSearchParams(location.search);
       const result = params.get("paypal");
@@ -343,6 +368,7 @@
       const status = game.status && game.status !== "Available" ? game.status : game.access;
       const coverUrl = covers[game.id];
       const landscape = game.category === "PC";
+      const changeEligible = viewer?.user && viewerRequest && ["pending", "awaiting_payment", "approved", "scheduled"].includes(viewerRequest.status) && !viewerRequest.pendingChange && (viewer.isOwner || Number(viewerRequest.viewerChangeCount || 0) < 1) && viewerRequest.gameId !== game.id;
       return `<article class="game-card ${colors[game.category] || ""}${landscape ? " landscape-art" : ""}" tabindex="0">
         <div class="cover-frame${landscape ? " is-landscape" : ""}">
           <div class="cover-fallback" aria-hidden="true"><span>Cover unavailable</span><b>${escapeHtml(game.title)}</b></div>
@@ -362,7 +388,9 @@
           ${game.requestable === false
             ? '<button class="request-button unavailable" type="button" disabled>Requests unavailable</button>'
             : !availabilityState.open
-              ? `<button class="request-button unavailable" type="button" disabled>${availabilityState.mode === "loading" ? "Checking availability" : "Requests closed"}</button>`
+              ? changeEligible
+                ? `<button class="request-button change-game-button" data-change-id="${escapeHtml(game.id)}">${viewer.isOwner ? "Change request to this game" : "Use one game change"}</button>`
+                : `<button class="request-button unavailable" type="button" disabled>${availabilityState.mode === "loading" ? "Checking availability" : "Requests closed"}</button>`
             : `<button class="request-button" data-request-id="${escapeHtml(game.id)}">Request this game</button>`}
         </div>
       </article>`;
@@ -428,11 +456,33 @@
   search.addEventListener("input", render);
   sort.addEventListener("change", render);
   grid.addEventListener("click", (event) => {
+    const changeButton = event.target.closest("[data-change-id]");
+    if (changeButton) {
+      const game = games.find((item) => item.id === changeButton.dataset.changeId);
+      if (game) requestGameChange(game);
+      return;
+    }
     const button = event.target.closest("[data-request-id]");
     if (!button) return;
     const game = games.find((item) => item.id === button.dataset.requestId);
     if (game) openRequest(game);
   });
+  async function requestGameChange(game) {
+    if (!viewerRequest || !viewer?.user) return;
+    const wording = viewer.isOwner
+      ? `Change ${viewerRequest.gameTitle} to ${game.title}? This owner change will be applied immediately.`
+      : `Use your one allowed game change to request ${game.title}? Staff must approve it, and this cannot be used again.`;
+    if (!confirm(wording)) return;
+    try {
+      const data = await api("request_game_change", { requestId: viewerRequest.id, gameId: game.id });
+      viewerRequest = data.request;
+      renderViewerRequest(data.applied ? `The request was changed to ${game.title}.` : `Your change to ${game.title} is waiting for staff review.`);
+      render();
+      await loadAvailability();
+    } catch (error) {
+      renderViewerRequest(error.message, true);
+    }
+  }
   dialog.querySelector(".price-options").addEventListener("click", (event) => {
     const option = event.target.closest("button[data-plan]");
     if (!option || requestComplete) return;

@@ -136,7 +136,7 @@ async function requestAvailability(admin: any) {
   }
 
   const { data: activeRows, error: activeError } = await admin.from("game_requests")
-    .select("id,request_number,game_title,status")
+    .select("id,request_number,game_id,game_title,game_system,game_cover_url,status,scheduled_for")
     .in("status", ACTIVE_STATUSES)
     .order("created_at", { ascending: true })
     .limit(1);
@@ -174,8 +174,12 @@ async function requestAvailability(admin: any) {
     reopensAt,
     activeRequest: active ? {
       code: `GR-${String(active.request_number).padStart(6, "0")}`,
+      gameId: active.game_id,
       gameTitle: active.game_title,
+      gameSystem: active.game_system,
+      coverUrl: active.game_cover_url,
       status: active.status,
+      scheduledFor: active.scheduled_for,
     } : null,
   };
 }
@@ -201,6 +205,7 @@ async function sendDiscordRecord(requestRow: any) {
           { name: "Status", value: requestRow.status.replaceAll("_", " "), inline: true },
           { name: "Catalog ID", value: requestRow.game_id, inline: true },
         ],
+        ...(requestRow.game_cover_url ? { image: { url: requestRow.game_cover_url } } : {}),
         footer: { text: requestCode },
         timestamp: requestRow.created_at,
       }],
@@ -211,62 +216,87 @@ async function sendDiscordRecord(requestRow: any) {
   return { channelId, messageId: String(data.id) };
 }
 
-async function sendDiscordCreationLog(requestRow: any) {
-  const token = Deno.env.get("DISCORD_BOT_TOKEN");
-  if (!token) throw new Error("Discord bot connection is unavailable.");
-  const requestCode = `GR-${String(requestRow.request_number).padStart(6, "0")}`;
-  const response = await fetch(`https://discord.com/api/v10/channels/${LOG_CHANNEL_ID}/messages`, {
-    method: "POST",
-    headers: { Authorization: `Bot ${token}`, "Content-Type": "application/json" },
-    body: JSON.stringify({
-      allowed_mentions: { parse: [] },
-      embeds: [{
-        title: "Game Request Created",
-        color: requestRow.is_owner ? 0xb5ff18 : 0xff3b93,
-        fields: [
-          { name: "Request", value: `${requestCode} · ${requestRow.game_title}`, inline: false },
-          { name: "Requester", value: requestRow.twitch_display_name, inline: true },
-          { name: "Status", value: requestRow.status.replaceAll("_", " "), inline: true },
-          { name: "Amount", value: requestRow.is_owner ? "$0.00 · Owner" : `$${Number(requestRow.amount_due).toFixed(2)}`, inline: true },
-        ],
-        timestamp: requestRow.created_at,
-      }],
-    }),
-  });
-  if (!response.ok) throw new Error(`Discord rejected the request log (${response.status}).`);
+function eventLine(event: any) {
+  const labels: Record<string, string> = {
+    request_submitted: "Request submitted",
+    owner_request_approved: "Owner request submitted and approved",
+    paypal_order_created: "PayPal checkout opened",
+    payment_completed: "PayPal payment verified",
+    game_change_requested: "Viewer requested a game change",
+    game_change_applied: "Game change applied",
+    game_change_denied: "Game change denied",
+  };
+  const type = String(event.event_type || "");
+  const label = labels[type] || (type.startsWith("status_") ? `Status changed to ${type.slice(7).replaceAll("_", " ")}` : type.replaceAll("_", " "));
+  const details = event.details || {};
+  const extras = [details.actor_name, details.note, details.new_game_title ? `New game: ${details.new_game_title}` : null, details.scheduled_for ? `Scheduled: <t:${Math.floor(new Date(details.scheduled_for).getTime() / 1000)}:F>` : null].filter(Boolean);
+  return `• <t:${Math.floor(new Date(event.created_at).getTime() / 1000)}:f> — **${label}**${extras.length ? ` · ${extras.join(" · ")}` : ""}`;
 }
 
-async function sendDiscordPaymentLog(requestRow: any) {
+function timelineEmbeds(row: any, events: any[]) {
+  const code = `GR-${String(row.request_number).padStart(6, "0")}`;
+  const summary: any = {
+    title: `Game Request History · ${code}`,
+    color: row.status === "completed" ? 0x22c55e : row.status === "denied" ? 0xef4444 : row.status === "cancelled" ? 0x94a3b8 : 0xb5ff18,
+    fields: [
+      { name: "Current Game", value: `${row.game_title}\n${row.game_system}`, inline: false },
+      { name: "Requester", value: row.twitch_display_name, inline: true },
+      { name: "Request Type", value: row.request_type, inline: true },
+      { name: "Current Status", value: String(row.status).replaceAll("_", " "), inline: true },
+    ],
+    ...(row.game_cover_url ? { thumbnail: { url: row.game_cover_url } } : {}),
+    footer: { text: "This single log is updated through the final outcome." },
+    timestamp: row.updated_at || row.created_at,
+  };
+  if (row.scheduled_for) summary.fields.push({ name: "Scheduled For", value: `<t:${Math.floor(new Date(row.scheduled_for).getTime() / 1000)}:F>`, inline: false });
+  if (row.resolution_note) summary.fields.push({ name: "Outcome Reason", value: String(row.resolution_note).slice(0, 1024), inline: false });
+  const lines = events.filter((event) => event.event_type !== "discord_record_failed").map(eventLine);
+  const chunks: string[] = [];
+  let chunk = "";
+  for (const line of lines) {
+    if (chunk && chunk.length + line.length + 1 > 3900) { chunks.push(chunk); chunk = ""; }
+    chunk += `${chunk ? "\n" : ""}${line}`;
+  }
+  if (chunk || !chunks.length) chunks.push(chunk || "No history recorded yet.");
+  return [summary, ...chunks.slice(0, 9).map((description, index) => ({ title: index ? `Timeline continued ${index + 1}` : "Complete Timeline", color: 0x252b26, description }))];
+}
+
+async function syncDiscordHistoryLog(admin: any, requestRow: any) {
   const token = Deno.env.get("DISCORD_BOT_TOKEN");
   if (!token) throw new Error("Discord bot connection is unavailable.");
-  const requestCode = `GR-${String(requestRow.request_number).padStart(6, "0")}`;
+  const [{ data: row }, { data: events }] = await Promise.all([
+    admin.from("game_requests").select("*").eq("id", requestRow.id).single(),
+    admin.from("game_request_events").select("event_type,details,created_at").eq("request_id", requestRow.id).order("created_at", { ascending: true }).limit(500),
+  ]);
+  if (!row) throw new Error("Game request history could not be loaded.");
+  const payload = JSON.stringify({ allowed_mentions: { parse: [] }, embeds: timelineEmbeds(row, events || []) });
+  if (row.discord_log_message_id) {
+    const updated = await fetch(`https://discord.com/api/v10/channels/${LOG_CHANNEL_ID}/messages/${row.discord_log_message_id}`, {
+      method: "PATCH",
+      headers: { Authorization: `Bot ${token}`, "Content-Type": "application/json" },
+      body: payload,
+    });
+    if (updated.ok) return;
+    if (updated.status !== 404) throw new Error(`Discord rejected the request history update (${updated.status}).`);
+  }
   const response = await fetch(`https://discord.com/api/v10/channels/${LOG_CHANNEL_ID}/messages`, {
     method: "POST",
     headers: { Authorization: `Bot ${token}`, "Content-Type": "application/json" },
-    body: JSON.stringify({
-      allowed_mentions: { parse: [] },
-      embeds: [{
-        title: "Game Request Payment Verified",
-        color: 0xb5ff18,
-        fields: [
-          { name: "Request", value: `${requestCode} · ${requestRow.game_title}`, inline: false },
-          { name: "Requester", value: requestRow.twitch_display_name, inline: true },
-          { name: "Amount", value: `$${Number(requestRow.amount_due).toFixed(2)} USD`, inline: true },
-          { name: "Status", value: "Approved", inline: true },
-        ],
-        timestamp: new Date().toISOString(),
-      }],
-    }),
+    body: payload,
   });
-  if (!response.ok) throw new Error(`Discord rejected the payment log (${response.status}).`);
+  const created = await response.json().catch(() => ({}));
+  if (!response.ok || !created.id) throw new Error(`Discord rejected the request history (${response.status}).`);
+  await admin.from("game_requests").update({ discord_log_message_id: String(created.id) }).eq("id", row.id);
 }
 
 function publicRequest(row: any) {
   return {
     id: row.id,
+    gameId: row.game_id,
     code: `GR-${String(row.request_number).padStart(6, "0")}`,
     gameTitle: row.game_title,
     gameSystem: row.game_system,
+    coverUrl: row.game_cover_url || null,
     requestType: row.request_type,
     status: row.status,
     amountDue: Number(row.amount_due),
@@ -274,6 +304,8 @@ function publicRequest(row: any) {
     paymentRequired: Boolean(row.payment_required),
     paypalStatus: row.paypal_status || null,
     scheduledFor: row.scheduled_for || null,
+    viewerChangeCount: Number(row.viewer_change_count || 0),
+    pendingChange: row.pending_change_game_id ? { gameId: row.pending_change_game_id, gameTitle: row.pending_change_game_title, gameSystem: row.pending_change_game_system, coverUrl: row.pending_change_cover_url || null } : null,
     createdAt: row.created_at,
   };
 }
@@ -366,7 +398,67 @@ async function createPayment(admin: any, identity: TwitchIdentity, body: any) {
     updated_at: new Date().toISOString(),
   }).eq("id", row.id);
   await admin.from("game_request_events").insert({ request_id: row.id, event_type: "paypal_order_created", actor_twitch_user_id: identity.id, details: { order_id: response.body.id, mode: PAYPAL_ENVIRONMENT } });
+  await syncDiscordHistoryLog(admin, row).catch((error) => console.error("Game request history update failed", error));
   return { requestId: row.id, approvalUrl };
+}
+
+async function patchDiscordRecord(row: any) {
+  const token = Deno.env.get("DISCORD_BOT_TOKEN");
+  if (!token || !row.discord_channel_id || !row.discord_message_id) return;
+  const fields: any[] = [
+    { name: "Game", value: `${row.game_title}\n${row.game_system}`, inline: false },
+    { name: "Requester", value: row.twitch_display_name, inline: true },
+    { name: "Request Type", value: row.request_type, inline: true },
+    { name: "Amount", value: row.is_owner ? "$0.00 · Owner" : `$${Number(row.amount_due).toFixed(2)}`, inline: true },
+    { name: "Status", value: String(row.status).replaceAll("_", " "), inline: true },
+  ];
+  if (row.pending_change_game_id) fields.push({ name: "Requested Game Change", value: `${row.pending_change_game_title}\n${row.pending_change_game_system}\nWaiting for staff review`, inline: false });
+  const response = await fetch(`https://discord.com/api/v10/channels/${row.discord_channel_id}/messages/${row.discord_message_id}`, {
+    method: "PATCH",
+    headers: { Authorization: `Bot ${token}`, "Content-Type": "application/json" },
+    body: JSON.stringify({ allowed_mentions: { parse: [] }, embeds: [{ title: "Game Request", color: row.pending_change_game_id ? 0xffc107 : 0xb5ff18, fields, ...(row.game_cover_url ? { image: { url: row.game_cover_url } } : {}), footer: { text: `GR-${String(row.request_number).padStart(6, "0")}` }, timestamp: row.updated_at || row.created_at }] }),
+  });
+  if (!response.ok && response.status !== 404) throw new Error(`Discord rejected the game request update (${response.status}).`);
+}
+
+async function requestGameChange(admin: any, identity: TwitchIdentity, isOwner: boolean, body: any) {
+  const row = await findOwnedRequest(admin, String(body.requestId || ""), identity);
+  if (!ACTIVE_STATUSES.includes(row.status)) throw new ApiError("Archived requests cannot be changed.", 409);
+  if (!isOwner && Number(row.viewer_change_count || 0) >= 1) throw new ApiError("You have already used the one game change allowed for this request.", 409);
+  if (!isOwner && row.pending_change_game_id) throw new ApiError("Your game change is already waiting for staff review.", 409);
+  const gameId = String(body.gameId || "").trim();
+  const { data: game, error } = await admin.from("game_catalog").select("id,title,system,cover_url,requestable").eq("id", gameId).maybeSingle();
+  if (error) throw new ApiError("The replacement game could not be checked.", 500);
+  if (!game || !game.requestable) throw new ApiError("That replacement game is not available for requests.", 409);
+  if (game.id === row.game_id) throw new ApiError("Choose a different game.", 409);
+  const now = new Date().toISOString();
+  if (isOwner) {
+    const { data: updated, error: updateError } = await admin.from("game_requests").update({
+      game_id: game.id, game_title: game.title, game_system: game.system, game_cover_url: game.cover_url,
+      pending_change_game_id: null, pending_change_game_title: null, pending_change_game_system: null, pending_change_cover_url: null, pending_change_requested_at: null,
+      ...(row.paypal_status === "COMPLETED" ? {} : { paypal_order_id: null, paypal_status: null, payment_error: null, payment_attempts: 0 }),
+      updated_at: now,
+    }).eq("id", row.id).select("*").single();
+    if (updateError || !updated) throw new ApiError("The game could not be changed.", 500);
+    await admin.from("game_request_events").insert({ request_id: row.id, event_type: "game_change_applied", actor_twitch_user_id: identity.id, details: { actor_name: identity.displayName, actor_role: "owner", previous_game_title: row.game_title, new_game_title: game.title, source: "owner" } });
+    await patchDiscordRecord(updated).catch((discordError) => console.error("Discord game change update failed", discordError));
+    await syncDiscordHistoryLog(admin, updated).catch((discordError) => console.error("Discord request history update failed", discordError));
+    return { request: publicRequest(updated), applied: true };
+  }
+  const { data: updated, error: updateError } = await admin.from("game_requests").update({
+    viewer_change_count: 1,
+    pending_change_game_id: game.id,
+    pending_change_game_title: game.title,
+    pending_change_game_system: game.system,
+    pending_change_cover_url: game.cover_url,
+    pending_change_requested_at: now,
+    updated_at: now,
+  }).eq("id", row.id).eq("viewer_change_count", 0).select("*").maybeSingle();
+  if (updateError || !updated) throw new ApiError("Your one game change has already been used.", 409);
+  await admin.from("game_request_events").insert({ request_id: row.id, event_type: "game_change_requested", actor_twitch_user_id: identity.id, details: { actor_name: identity.displayName, previous_game_title: row.game_title, new_game_title: game.title } });
+  await patchDiscordRecord(updated).catch((discordError) => console.error("Discord game change request update failed", discordError));
+  await syncDiscordHistoryLog(admin, updated).catch((discordError) => console.error("Discord request history update failed", discordError));
+  return { request: publicRequest(updated), applied: false };
 }
 
 async function movePaidRequestToApproved(admin: any, row: any) {
@@ -385,6 +477,7 @@ async function movePaidRequestToApproved(admin: any, row: any) {
         { name: "Verified Amount", value: `$${Number(row.amount_due).toFixed(2)} USD`, inline: true },
         { name: "Status", value: "Approved", inline: true },
       ],
+      ...(row.game_cover_url ? { image: { url: row.game_cover_url } } : {}),
       footer: { text: `${requestCode} · PayPal verified` },
       timestamp: new Date().toISOString(),
     }],
@@ -400,7 +493,7 @@ async function movePaidRequestToApproved(admin: any, row: any) {
   const oldMessage = row.discord_message_id;
   await admin.from("game_requests").update({ discord_channel_id: APPROVED_CHANNEL_ID, discord_message_id: String(created.id), discord_last_error: null }).eq("id", row.id);
   if (oldChannel && oldMessage) await fetch(`https://discord.com/api/v10/channels/${oldChannel}/messages/${oldMessage}`, { method: "DELETE", headers: { Authorization: `Bot ${token}` } }).catch(() => null);
-  await sendDiscordPaymentLog({ ...row, status: "approved" }).catch(() => null);
+  await syncDiscordHistoryLog(admin, { ...row, status: "approved" }).catch(() => null);
 }
 
 async function completeGamePayment(admin: any, row: any, capture: any) {
@@ -461,7 +554,7 @@ async function createRequest(admin: any, identity: TwitchIdentity, isOwner: bool
 
   const [availability, { data: game, error: gameError }] = await Promise.all([
     requestAvailability(admin),
-    admin.from("game_catalog").select("id,title,system,requestable").eq("id", gameId).maybeSingle(),
+    admin.from("game_catalog").select("id,title,system,cover_url,requestable").eq("id", gameId).maybeSingle(),
   ]);
   if (!availability.open) throw new ApiError(availability.message, 409);
   if (gameError) throw new ApiError("The game catalog could not be verified.", 500);
@@ -497,6 +590,7 @@ async function createRequest(admin: any, identity: TwitchIdentity, isOwner: bool
     game_id: game.id,
     game_title: game.title,
     game_system: game.system,
+    game_cover_url: game.cover_url || null,
     request_type: plan,
     base_price: basePrice,
     amount_due: isOwner ? 0 : basePrice,
@@ -530,7 +624,7 @@ async function createRequest(admin: any, identity: TwitchIdentity, isOwner: bool
       updated_at: new Date().toISOString(),
     }).eq("id", created.id);
     discordPosted = true;
-    await sendDiscordCreationLog(created).catch((logError) => console.error("Game request Discord log failed", logError));
+    await syncDiscordHistoryLog(admin, created).catch((logError) => console.error("Game request Discord history failed", logError));
   } catch (error) {
     console.error("Game request Discord record failed", error);
     await admin.from("game_request_events").insert({
@@ -578,6 +672,7 @@ Deno.serve(async (request: Request) => {
     if (action === "my_request") return json(await myRequest(admin, identity));
     if (action === "create_payment") return json(await createPayment(admin, identity, body));
     if (action === "capture_payment") return json(await capturePayment(admin, identity, body));
+    if (action === "request_game_change") return json(await requestGameChange(admin, identity, isOwner, body));
     if (action === "submit") return json(await createRequest(admin, identity, isOwner, body), 201);
     throw new ApiError("Unknown action.", 404);
   } catch (error) {
