@@ -65,6 +65,21 @@
     };
   }
 
+  function resetCompletedCheckout() {
+    form.reset();
+    selectedAmount = 20;
+    usingCustomAmount = false;
+    customInput.value = '';
+    customWrap.hidden = true;
+    amountButtons.forEach((button) => button.classList.toggle('is-active', button.dataset.amount === '20'));
+    supporterName.disabled = false;
+    checkoutButton.disabled = false;
+    checkoutButton.type = 'submit';
+    checkoutButton.onclick = null;
+    checkoutButton.querySelector('span').textContent = 'Continue securely with PayPal';
+    updatePreview();
+  }
+
   async function api(path, options = {}) {
     const controller = new AbortController();
     const timeout = window.setTimeout(() => controller.abort(), 15000);
@@ -121,8 +136,8 @@
       showNotice(`Thank you! ${result.receiptCode} confirmed for ${formatAmount(result.amount)}. Your verified alert is queued.`);
       sessionStorage.removeItem('ttg-support-draft');
       sessionStorage.removeItem('ttg-support-donation-id');
-      history.replaceState({}, '', './?payment=complete');
-      checkoutButton.querySelector('span').textContent = 'Payment confirmed';
+      history.replaceState({}, '', './');
+      resetCompletedCheckout();
     } catch (error) {
       showNotice(`${error.message} Your PayPal payment will not be duplicated.`, true);
       checkoutButton.disabled = false;
