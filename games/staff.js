@@ -122,7 +122,7 @@
         <label class="action-field"><span>Status</span><select data-request-status aria-label="Request status">${statuses.map((status) => `<option value="${status}"${status === row.status ? " selected" : ""}>${status.replaceAll("_", " ")}</option>`).join("")}</select></label>
         <button type="button" data-update-request>Update request</button>
         <label class="action-field status-field schedule-field"${row.status === "scheduled" ? "" : " hidden"}><span>Scheduled date and time</span><input data-scheduled-for type="datetime-local" value="${escapeHtml(localDateTimeValue(row.scheduled_for))}"></label>
-        <label class="action-field status-field vod-field" hidden><span>YouTube VOD link</span><input data-youtube-vod type="url" inputmode="url" maxlength="500" placeholder="https://youtube.com/watch?v=…"></label>
+        <div class="action-field status-field vod-field" hidden><span>YouTube VOD link</span><div class="vod-control"><input data-youtube-vod type="url" inputmode="url" maxlength="500" aria-label="YouTube VOD link" placeholder="https://youtube.com/watch?v=…"><button type="button" data-latest-vod>Use latest VOD</button></div><small data-vod-result>The latest completed YouTube livestream will load automatically.</small></div>
         <label class="action-field note-field"><span>Staff note <small>optional</small></span><input data-staff-note maxlength="1000" placeholder="Reason or update details"></label>
         <label class="action-field game-change-field"><span>Staff game correction <small>unlimited</small></span><select data-game-change>${gameOptions}</select></label>
         <button class="change-game" type="button" data-change-game>Change game</button>
@@ -143,6 +143,27 @@
     card.querySelector("[data-staff-note]").required = status === "cancelled";
     card.querySelector(".note-field > span").innerHTML = status === "cancelled" ? "Cancellation reason <small>required</small>" : "Staff note <small>optional</small>";
     scheduledInput.min = localDateTimeValue(new Date(Date.now() + 60000).toISOString());
+  }
+
+  async function loadLatestVod(card, automatic = false) {
+    const input = card.querySelector("[data-youtube-vod]");
+    const button = card.querySelector("[data-latest-vod]");
+    const result = card.querySelector("[data-vod-result]");
+    if (!input || !button || !result) return;
+    button.disabled = true;
+    result.textContent = "Loading the latest completed YouTube livestream…";
+    try {
+      const data = await api("latest_youtube_vod");
+      input.value = data.vod.url;
+      const published = data.vod.publishedAt ? ` · ${formatDate(data.vod.publishedAt)}` : "";
+      result.textContent = `${data.vod.title}${published}`;
+      if (!automatic) setNotice("The latest completed YouTube VOD is ready.");
+    } catch (error) {
+      result.textContent = `${error.message} You can still paste the VOD link manually.`;
+      if (!automatic) setNotice(error.message, true);
+    } finally {
+      button.disabled = false;
+    }
   }
 
   function archiveCard(row, isOwner) {
@@ -202,6 +223,11 @@
     catch (error) { setNotice(error.message, true); }
   });
   queue.addEventListener("click", async (event) => {
+    const vodButton = event.target.closest("[data-latest-vod]");
+    if (vodButton) {
+      await loadLatestVod(vodButton.closest("[data-request-id]"));
+      return;
+    }
     const changeButton = event.target.closest("[data-change-game]");
     const resolveButton = event.target.closest("[data-resolve-change]");
     if (changeButton || resolveButton) {
@@ -236,7 +262,9 @@
   });
   queue.addEventListener("change", (event) => {
     if (!event.target.matches("[data-request-status]")) return;
-    setStatusFields(event.target.closest("[data-request-id]"));
+    const card = event.target.closest("[data-request-id]");
+    setStatusFields(card);
+    if (event.target.value === "completed" && !card.querySelector("[data-youtube-vod]").value) loadLatestVod(card, true);
   });
   archive.addEventListener("click", async (event) => {
     const button = event.target.closest("[data-delete-request]");
