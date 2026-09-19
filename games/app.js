@@ -48,6 +48,7 @@
   const viewerRequestMeta = document.querySelector("#viewerRequestMeta");
   const viewerRequestAmount = document.querySelector("#viewerRequestAmount");
   const viewerRequestPay = document.querySelector("#viewerRequestPay");
+  const viewerRequestChange = document.querySelector("#viewerRequestChange");
   const viewerRequestMessage = document.querySelector("#viewerRequestMessage");
   const pageSize = 96;
   let activeFilter = "all";
@@ -134,6 +135,14 @@
     const minutes = Math.floor((remaining % 3600000) / 60000);
     const seconds = Math.floor((remaining % 60000) / 1000);
     return `${days}d ${String(hours).padStart(2, "0")}h ${String(minutes).padStart(2, "0")}m ${String(seconds).padStart(2, "0")}s`;
+  }
+
+  function paymentRemainingLabel(value) {
+    const remaining = new Date(value).getTime() - Date.now();
+    if (remaining <= 0) return "the payment window has expired";
+    const hours = Math.floor(remaining / 3600000);
+    const minutes = Math.floor((remaining % 3600000) / 60000);
+    return `${hours}h ${minutes}m`;
   }
 
   function updateAvailabilityBanner() {
@@ -229,12 +238,20 @@
     viewerRequestPay.hidden = request.status !== "awaiting_payment" || !request.paymentRequired || request.paypalStatus === "COMPLETED";
     viewerRequestPay.disabled = false;
     viewerRequestPay.textContent = paymentMode === "sandbox" ? "Test with PayPal Sandbox" : "Pay securely with PayPal";
+    const canRequestChange = ["pending", "awaiting_payment", "approved", "scheduled"].includes(request.status)
+      && !request.pendingChange
+      && (viewer.isOwner || Number(request.viewerChangeCount || 0) < 1);
+    viewerRequestChange.hidden = !canRequestChange;
+    viewerRequestChange.textContent = viewer.isOwner ? "Change game" : "Request game change";
     if (message) viewerRequestMessage.textContent = message;
     else if (request.pendingChange) viewerRequestMessage.textContent = `Your one game change to ${request.pendingChange.gameTitle} is waiting for staff review.`;
     else if (request.status === "pending") viewerRequestMessage.textContent = "Staff is reviewing this request. Payment will open only after staff moves it to Awaiting Payment.";
-    else if (request.status === "awaiting_payment") viewerRequestMessage.textContent = paymentMode === "sandbox" ? "Checkout is connected in PayPal Sandbox test mode. No live money will be charged." : "Your request is ready for secure PayPal checkout.";
-    else if (request.paypalStatus === "COMPLETED") viewerRequestMessage.textContent = "PayPal verified the payment and the request is approved.";
+    else if (request.status === "awaiting_payment") {
+      const deadline = request.paymentExpiresAt ? ` Time remaining: ${paymentRemainingLabel(request.paymentExpiresAt)}.` : "";
+      viewerRequestMessage.textContent = (paymentMode === "sandbox" ? "Checkout is connected in PayPal Sandbox test mode. No live money will be charged." : "Your request is ready for secure PayPal checkout.") + deadline;
+    }
     else if (request.status === "scheduled") viewerRequestMessage.textContent = request.scheduledFor ? `Scheduled for ${new Intl.DateTimeFormat(undefined, { dateStyle: "medium", timeStyle: "short" }).format(new Date(request.scheduledFor))}.` : "This request is scheduled.";
+    else if (request.paypalStatus === "COMPLETED") viewerRequestMessage.textContent = "PayPal verified the payment. Your request is approved and ready for staff to schedule.";
     else viewerRequestMessage.textContent = `This request is ${statusLabel(request.status).toLowerCase()}.`;
   }
 
@@ -483,6 +500,13 @@
       renderViewerRequest(error.message, true);
     }
   }
+  viewerRequestChange.addEventListener("click", () => {
+    viewerRequestMessage.textContent = viewer?.isOwner
+      ? "Choose any different game below to change this request immediately."
+      : "Choose a different game below. Staff will review your one allowed change request.";
+    document.querySelector(".catalog-shell")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    search.focus({ preventScroll: true });
+  });
   dialog.querySelector(".price-options").addEventListener("click", (event) => {
     const option = event.target.closest("button[data-plan]");
     if (!option || requestComplete) return;

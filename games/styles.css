@@ -143,6 +143,7 @@ h1 { margin: 0; font-size: clamp(2.25rem, 5vw, 4.6rem); letter-spacing: -.045em;
 .viewer-request-payment span { color: #fff; font-size: .9rem; font-weight: 900; white-space: nowrap; }
 .viewer-request-payment button { min-height: 42px; padding: 0 16px; border: 1px solid #ffc439; border-radius: 10px; background: #ffc439; color: #111; font-weight: 900; cursor: pointer; }
 .viewer-request-payment button:disabled { opacity: .62; cursor: wait; }
+.viewer-request-payment .viewer-request-change { border-color: #5865f2; background: rgba(88,101,242,.2); color: #fff; }
 .viewer-request-message { grid-column: 1 / -1; padding-top: 9px; border-top: 1px solid #303931; }
 .viewer-request-panel.is-paid { border-left-color: var(--toxic); background: linear-gradient(100deg, rgba(181,255,24,.08), rgba(14,18,15,.98) 42%); }
 .viewer-request-panel.is-error { border-left-color: var(--pink); }

@@ -113,36 +113,37 @@
   }
 
   function requestCard(row) {
-    const statuses = ["pending", "awaiting_payment", "approved", "scheduled", "completed", "denied", "cancelled", "expired"];
     const gameOptions = (dashboardData?.catalog || []).map((game) => `<option value="${escapeHtml(game.id)}"${game.id === row.game_id ? " selected" : ""}>${escapeHtml(game.title)} · ${escapeHtml(game.system)}</option>`).join("");
+    const next = row.status === "pending"
+      ? { status: row.is_owner ? "approved" : "awaiting_payment", label: row.is_owner ? "Approve request" : "Approve & request payment" }
+      : row.status === "approved"
+        ? { status: "scheduled", label: "Schedule request" }
+        : row.status === "scheduled"
+          ? { status: "completed", label: "Complete request" }
+          : null;
+    const paymentDeadline = row.status === "awaiting_payment" && row.payment_expires_at
+      ? `<div class="workflow-state"><strong>Awaiting payment</strong><span>Expires ${formatDate(row.payment_expires_at)} · ${remainingLabel(row.payment_expires_at)} remaining</span></div>`
+      : "";
     return `<article class="staff-request" data-request-id="${escapeHtml(row.id)}">
       <div class="staff-request-summary">${row.game_cover_url ? `<img class="staff-request-cover" src="${escapeHtml(row.game_cover_url)}" alt="${escapeHtml(row.game_title)} cover art">` : ""}<div><h3>${escapeHtml(row.game_title)}</h3><div class="staff-request-meta"><span>${requestCode(row)}</span><span>${escapeHtml(row.game_system)}</span><span>${escapeHtml(row.request_type)}</span><span>${escapeHtml(row.status.replaceAll("_", " "))}</span><span>${row.is_owner ? "$0 · Owner" : `$${Number(row.amount_due).toFixed(2)}`}</span><span>${row.is_owner ? "Payment exempt" : row.paypal_status === "COMPLETED" ? "PayPal verified" : "Payment pending"}</span><span>${escapeHtml(row.twitch_display_name)}</span></div><p>Submitted ${formatDate(row.created_at)}${row.payment_completed_at ? ` · Paid ${formatDate(row.payment_completed_at)}` : ""}</p></div></div>
       <div class="request-actions">
         ${row.pending_change_game_id ? `<div class="pending-game-change"><strong>Viewer game change requested</strong><span>${escapeHtml(row.pending_change_game_title)} · ${escapeHtml(row.pending_change_game_system)}</span><div><button type="button" data-resolve-change="apply">Apply change</button><button class="change-deny" type="button" data-resolve-change="deny">Deny change</button></div></div>` : ""}
-        <label class="action-field"><span>Status</span><select data-request-status aria-label="Request status">${statuses.map((status) => `<option value="${status}"${status === row.status ? " selected" : ""}>${status.replaceAll("_", " ")}</option>`).join("")}</select></label>
-        <button type="button" data-update-request>Update request</button>
-        <label class="action-field status-field schedule-field"${row.status === "scheduled" ? "" : " hidden"}><span>Scheduled date and time</span><input data-scheduled-for type="datetime-local" value="${escapeHtml(localDateTimeValue(row.scheduled_for))}"></label>
-        <div class="action-field status-field vod-field" hidden><span>YouTube VOD link</span><div class="vod-control"><input data-youtube-vod type="url" inputmode="url" maxlength="500" aria-label="YouTube VOD link" placeholder="https://youtube.com/watch?v=…"><button type="button" data-latest-vod>Use latest VOD</button></div><small data-vod-result>The latest completed YouTube livestream will load automatically.</small></div>
+        ${paymentDeadline}
+        ${row.status === "approved" ? `<label class="action-field status-field schedule-field"><span>Scheduled date and time</span><input data-scheduled-for type="datetime-local" value="${escapeHtml(localDateTimeValue(row.scheduled_for))}" required></label>` : '<input data-scheduled-for type="hidden">'}
+        ${row.status === "scheduled" ? `<div class="action-field status-field vod-field"><span>YouTube VOD link</span><div class="vod-control"><input data-youtube-vod type="url" inputmode="url" maxlength="500" aria-label="YouTube VOD link" placeholder="Automatically uses the latest completed stream" value="${escapeHtml(row.youtube_vod_url || "")}"><button type="button" data-latest-vod>Use latest VOD</button></div><small data-vod-result>The latest completed YouTube livestream will be attached.</small></div>` : '<input data-youtube-vod type="hidden">'}
+        ${next ? `<button class="workflow-primary" type="button" data-next-status="${next.status}">${next.label}</button>` : ""}
         <label class="action-field note-field"><span>Staff note <small>optional</small></span><input data-staff-note maxlength="1000" placeholder="Reason or update details"></label>
+        <label class="action-field secondary-field"><span>Other action</span><select data-secondary-status><option value="">Choose only when needed</option><option value="denied">Deny request</option><option value="cancelled">Cancel request</option><option value="expired">Expire now</option></select></label>
+        <button class="secondary-action" type="button" data-secondary-action>Apply other action</button>
         <label class="action-field game-change-field"><span>Staff game correction <small>unlimited</small></span><select data-game-change>${gameOptions}</select></label>
         <button class="change-game" type="button" data-change-game>Change game</button>
       </div>
     </article>`;
   }
 
-  function setStatusFields(card) {
-    const status = card.querySelector("[data-request-status]").value;
-    const schedule = card.querySelector(".schedule-field");
-    const vod = card.querySelector(".vod-field");
+  function setWorkflowFields(card) {
     const scheduledInput = card.querySelector("[data-scheduled-for]");
-    const vodInput = card.querySelector("[data-youtube-vod]");
-    schedule.hidden = status !== "scheduled";
-    vod.hidden = status !== "completed";
-    scheduledInput.required = status === "scheduled";
-    vodInput.required = status === "completed";
-    card.querySelector("[data-staff-note]").required = status === "cancelled";
-    card.querySelector(".note-field > span").innerHTML = status === "cancelled" ? "Cancellation reason <small>required</small>" : "Staff note <small>optional</small>";
-    scheduledInput.min = localDateTimeValue(new Date(Date.now() + 60000).toISOString());
+    if (scheduledInput?.type === "datetime-local") scheduledInput.min = localDateTimeValue(new Date(Date.now() + 60000).toISOString());
   }
 
   async function loadLatestVod(card, automatic = false) {
@@ -186,7 +187,7 @@
     document.querySelector("#queueCount").textContent = `${data.queue.length} active`;
     document.querySelector("#archiveCount").textContent = `${data.archive.length} archived`;
     queue.innerHTML = data.queue.length ? data.queue.map(requestCard).join("") : '<div class="empty-staff">No active request.</div>';
-    queue.querySelectorAll("[data-request-id]").forEach(setStatusFields);
+    queue.querySelectorAll("[data-request-id]").forEach(setWorkflowFields);
     archive.innerHTML = data.archive.length ? data.archive.map((row) => archiveCard(row, data.staff.role === "owner")).join("") : '<div class="empty-staff">No archived requests yet.</div>';
   }
 
@@ -243,28 +244,34 @@
       } catch (error) { setNotice(error.message, true); button.disabled = false; }
       return;
     }
-    const button = event.target.closest("[data-update-request]");
-    if (!button) return;
+    const primaryButton = event.target.closest("[data-next-status]");
+    const secondaryButton = event.target.closest("[data-secondary-action]");
+    if (!primaryButton && !secondaryButton) return;
+    const button = primaryButton || secondaryButton;
     const card = button.closest("[data-request-id]");
-    setStatusFields(card);
-    const requiredInput = card.querySelector("input:required");
-    if (requiredInput && !requiredInput.reportValidity()) return;
+    const status = primaryButton ? primaryButton.dataset.nextStatus : card.querySelector("[data-secondary-status]").value;
+    const noteInput = card.querySelector("[data-staff-note]");
+    if (!status) { setNotice("Choose an action first.", true); return; }
+    if (status === "cancelled" && !noteInput.value.trim()) { setNotice("Add a cancellation reason first.", true); noteInput.focus(); return; }
+    const scheduledInput = card.querySelector("[data-scheduled-for]");
+    if (status === "scheduled" && !scheduledInput.reportValidity()) return;
+    const vodInput = card.querySelector("[data-youtube-vod]");
     button.disabled = true;
-    const scheduledRaw = card.querySelector("[data-scheduled-for]").value;
-    try { render(await api("update_request", {
-      id: card.dataset.requestId,
-      status: card.querySelector("[data-request-status]").value,
-      note: card.querySelector("[data-staff-note]").value,
-      scheduledFor: scheduledRaw ? new Date(scheduledRaw).toISOString() : null,
-      youtubeVodUrl: card.querySelector("[data-youtube-vod]").value,
-    })); setNotice("Request updated in the website and Discord."); }
-    catch (error) { setNotice(error.message, true); button.disabled = false; }
-  });
-  queue.addEventListener("change", (event) => {
-    if (!event.target.matches("[data-request-status]")) return;
-    const card = event.target.closest("[data-request-id]");
-    setStatusFields(card);
-    if (event.target.value === "completed" && !card.querySelector("[data-youtube-vod]").value) loadLatestVod(card, true);
+    if (status === "completed" && !vodInput.value) {
+      await loadLatestVod(card, true);
+      if (!vodInput.value) { button.disabled = false; setNotice("Add a YouTube VOD link before completing the request.", true); return; }
+    }
+    const scheduledRaw = scheduledInput.value;
+    try {
+      render(await api("update_request", {
+        id: card.dataset.requestId,
+        status,
+        note: noteInput.value,
+        scheduledFor: scheduledRaw ? new Date(scheduledRaw).toISOString() : null,
+        youtubeVodUrl: vodInput.value,
+      }));
+      setNotice(status === "awaiting_payment" ? "Payment requested. The 24-hour timer is running." : status === "scheduled" ? "Request scheduled." : status === "completed" ? "Request completed with the YouTube VOD attached." : "Request updated in the website and Discord.");
+    } catch (error) { setNotice(error.message, true); button.disabled = false; }
   });
   archive.addEventListener("click", async (event) => {
     const button = event.target.closest("[data-delete-request]");

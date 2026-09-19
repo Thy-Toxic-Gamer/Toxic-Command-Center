@@ -21,7 +21,7 @@ const LOG_CHANNEL_ID = "1543750250097938562";
 const YOUTUBE_LIVE_CHANNEL_ID = "1536919057939439626";
 const DISCORD_ADMINISTRATOR = 1n << 3n;
 const DISCORD_STAFF_PERMISSIONS = (1n << 1n) | (1n << 2n) | (1n << 5n) | (1n << 13n) | (1n << 40n);
-const REQUEST_SELECT = "id,request_number,twitch_display_name,twitch_login,game_id,game_title,game_system,game_cover_url,request_type,base_price,amount_due,is_owner,payment_required,paypal_status,payment_completed_at,status,created_at,updated_at,completed_at,resolution_note,scheduled_for,viewer_change_count,pending_change_game_id,pending_change_game_title,pending_change_game_system,pending_change_cover_url,pending_change_requested_at";
+const REQUEST_SELECT = "id,request_number,twitch_display_name,twitch_login,game_id,game_title,game_system,game_cover_url,request_type,base_price,amount_due,is_owner,payment_required,paypal_status,payment_requested_at,payment_expires_at,payment_completed_at,status,created_at,updated_at,completed_at,resolution_note,scheduled_for,youtube_vod_url,viewer_change_count,pending_change_game_id,pending_change_game_title,pending_change_game_system,pending_change_cover_url,pending_change_requested_at";
 const CORS_HEADERS = {
   "Access-Control-Allow-Origin": ALLOWED_ORIGIN,
   "Access-Control-Allow-Headers": "authorization, apikey, content-type, x-game-platform",
@@ -288,6 +288,7 @@ function requestEmbed(row: any) {
     { name: "Status", value: displayStatus(row.status), inline: true },
   ];
   if (row.scheduled_for) fields.push({ name: "Scheduled For", value: discordTimestamp(row.scheduled_for), inline: false });
+  if (row.status === "awaiting_payment" && row.payment_expires_at) fields.push({ name: "Payment Deadline", value: discordTimestamp(row.payment_expires_at), inline: false });
   if (row.status === "completed" && row.youtube_vod_url) fields.push({ name: "YouTube VOD", value: `[Watch the completed request](${row.youtube_vod_url})`, inline: false });
   if (row.resolution_note) fields.push({ name: "Staff Note", value: String(row.resolution_note).slice(0, 1000), inline: false });
   if (row.pending_change_game_id) fields.push({ name: "Requested Game Change", value: `${row.pending_change_game_title}\n${row.pending_change_game_system}\nWaiting for staff review`, inline: false });
@@ -425,8 +426,16 @@ async function updateRequest(admin: any, identity: Identity, staff: any, body: a
 
   const deleteAt = new Date(now);
   deleteAt.setUTCMonth(deleteAt.getUTCMonth() + 9);
+  const paymentRequestedAt = status === "awaiting_payment"
+    ? (existing.status === "awaiting_payment" && existing.payment_requested_at ? existing.payment_requested_at : now.toISOString())
+    : null;
+  const paymentExpiresAt = paymentRequestedAt
+    ? new Date(new Date(paymentRequestedAt).getTime() + 24 * 60 * 60 * 1000).toISOString()
+    : null;
   const update: any = {
     status,
+    payment_requested_at: paymentRequestedAt,
+    payment_expires_at: paymentExpiresAt,
     resolution_note: note || null,
     scheduled_for: scheduledFor,
     youtube_vod_url: vodUrl,
@@ -478,7 +487,7 @@ async function updateRequest(admin: any, identity: Identity, staff: any, body: a
     }
   }
 
-  const eventDetails = { previous_status: existing.status, note, scheduled_for: scheduledFor, youtube_vod_attached: Boolean(vodUrl), actor_platform: identity.platform, actor_name: identity.displayName, actor_role: staff.role };
+  const eventDetails = { previous_status: existing.status, note, scheduled_for: scheduledFor, payment_expires_at: paymentExpiresAt, youtube_vod_attached: Boolean(vodUrl), actor_platform: identity.platform, actor_name: identity.displayName, actor_role: staff.role };
   await admin.from("game_request_events").insert({ request_id: id, event_type: `status_${status}`, actor_twitch_user_id: identity.platform === "twitch" ? identity.id : null, details: eventDetails });
   await audit(admin, identity, staff, "request_status_changed", { previous_status: existing.status, status, note, scheduled_for: scheduledFor, youtube_vod_attached: Boolean(vodUrl) }, id);
   await syncDiscordHistoryLog(admin, id).catch((error) => console.error("Discord request history update failed", error));

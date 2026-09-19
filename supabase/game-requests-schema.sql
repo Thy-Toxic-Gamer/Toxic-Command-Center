@@ -72,6 +72,8 @@ create table if not exists public.game_requests (
   paypal_order_id text,
   paypal_capture_id text,
   paypal_status text,
+  payment_requested_at timestamptz,
+  payment_expires_at timestamptz,
   payment_completed_at timestamptz,
   payment_error text,
   payment_attempts integer not null default 0 check (payment_attempts >= 0 and payment_attempts <= 10),
@@ -112,6 +114,8 @@ alter table public.game_requests add column if not exists payment_currency text 
 alter table public.game_requests add column if not exists paypal_order_id text;
 alter table public.game_requests add column if not exists paypal_capture_id text;
 alter table public.game_requests add column if not exists paypal_status text;
+alter table public.game_requests add column if not exists payment_requested_at timestamptz;
+alter table public.game_requests add column if not exists payment_expires_at timestamptz;
 alter table public.game_requests add column if not exists payment_completed_at timestamptz;
 alter table public.game_requests add column if not exists payment_error text;
 alter table public.game_requests add column if not exists payment_attempts integer not null default 0;

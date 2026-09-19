@@ -303,6 +303,8 @@ function publicRequest(row: any) {
     currency: row.payment_currency || "USD",
     paymentRequired: Boolean(row.payment_required),
     paypalStatus: row.paypal_status || null,
+    paymentRequestedAt: row.payment_requested_at || null,
+    paymentExpiresAt: row.payment_expires_at || null,
     scheduledFor: row.scheduled_for || null,
     viewerChangeCount: Number(row.viewer_change_count || 0),
     pendingChange: row.pending_change_game_id ? { gameId: row.pending_change_game_id, gameTitle: row.pending_change_game_title, gameSystem: row.pending_change_game_system, coverUrl: row.pending_change_cover_url || null } : null,
@@ -358,6 +360,7 @@ async function createPayment(admin: any, identity: TwitchIdentity, body: any) {
   if (row.is_owner || Number(row.amount_due) === 0) throw new ApiError("Owner requests do not require payment.", 409);
   if (row.paypal_status === "COMPLETED") return { request: publicRequest(row), completed: true };
   if (row.status !== "awaiting_payment") throw new ApiError("Payment is not open for this request yet.", 409);
+  if (row.payment_expires_at && new Date(row.payment_expires_at).getTime() <= Date.now()) throw new ApiError("The 24-hour payment window has expired.", 409);
   if (Number(row.payment_attempts || 0) >= 5) throw new ApiError("Too many checkout attempts. Ask staff to review this request.", 429);
 
   const accessToken = await getPayPalAccessToken();
@@ -511,6 +514,7 @@ async function completeGamePayment(admin: any, row: any, capture: any) {
     paypal_status: "COMPLETED",
     paypal_capture_id: capture.id,
     payment_completed_at: now,
+    payment_expires_at: null,
     payment_error: null,
     updated_at: now,
   }).eq("id", row.id).eq("status", "awaiting_payment").select("*").maybeSingle();
@@ -535,6 +539,7 @@ async function capturePayment(admin: any, identity: TwitchIdentity, body: any) {
   const row = await findOwnedRequest(admin, String(body.requestId || ""), identity);
   if (!orderId || row.paypal_order_id !== orderId) throw new ApiError("The PayPal order does not match this request.", 403);
   if (row.paypal_status === "COMPLETED") return { request: publicRequest(row) };
+  if (row.payment_expires_at && new Date(row.payment_expires_at).getTime() <= Date.now()) throw new ApiError("The 24-hour payment window has expired.", 409);
   const accessToken = await getPayPalAccessToken();
   let response = await paypalRequest(`/v2/checkout/orders/${encodeURIComponent(orderId)}/capture`, accessToken, {
     method: "POST",
