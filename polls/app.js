@@ -87,11 +87,16 @@
     closedPolls.innerHTML = state.closed.length ? state.closed.map((poll) => pollCard(poll, true)).join("") : '<div class="empty">No completed polls yet.</div>';
     const signIn = document.querySelector("#twitchSignIn");
     const viewer = document.querySelector("#viewer");
+    const staffControlsLink = document.querySelector("#staffControlsLink");
     signIn.hidden = Boolean(state.viewer);
     viewer.hidden = !state.viewer;
+    staffControlsLink.hidden = !state.viewer?.isStaff;
     if (state.viewer) {
       document.querySelector("#viewerAvatar").src = state.viewer.avatarUrl || "../tab-icon.png";
       document.querySelector("#viewerName").textContent = state.viewer.displayName;
+      document.querySelector("#viewerRole").textContent = state.viewer.isStaff
+        ? `${state.viewer.staffRole || "staff"} · Poll controls`
+        : "Twitch voter";
     }
   }
 

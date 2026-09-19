@@ -7,15 +7,16 @@
   <meta name="description" content="Vote in official ThyToxicGamer community polls.">
   <title>Poll Center | ThyToxicGamer</title>
   <link rel="icon" type="image/png" href="../tab-icon.png">
-  <link rel="stylesheet" href="styles.css?v=20260919-1">
+  <link rel="stylesheet" href="styles.css?v=20260919-2">
 </head>
 <body>
   <header class="topbar">
     <a class="brand" href="../"><img src="../tab-icon.png" alt=""><span><strong>ThyToxicGamer</strong><small>Command Network</small></span></a>
     <nav><a href="../">Command Center</a><a class="active" href="./" aria-current="page">Polls</a></nav>
     <div class="account-actions">
+      <a class="staff-controls-link" id="staffControlsLink" href="staff.html" hidden>Staff Controls</a>
       <button class="twitch-button" id="twitchSignIn" type="button">Sign in with Twitch</button>
-      <div class="viewer" id="viewer" hidden><img id="viewerAvatar" alt=""><span><strong id="viewerName"></strong><small>Twitch voter</small></span><button id="signOut" type="button">Sign out</button></div>
+      <div class="viewer" id="viewer" hidden><img id="viewerAvatar" alt=""><span><strong id="viewerName"></strong><small id="viewerRole">Twitch voter</small></span><button id="signOut" type="button">Sign out</button></div>
     </div>
   </header>
 
@@ -37,7 +38,7 @@
     </section>
   </main>
 
-  <footer><span>THYTOXICGAMER // POLL CENTER</span><span><a href="staff.html">Staff controls</a> · <a href="../">Command Center</a></span></footer>
-  <script src="app.js?v=20260919-1"></script>
+  <footer><span>THYTOXICGAMER // POLL CENTER</span><span><a href="../">Command Center</a></span></footer>
+  <script src="app.js?v=20260919-2"></script>
 </body>
 </html>
