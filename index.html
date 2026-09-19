@@ -365,7 +365,7 @@
   #toxic-command-center-concept .tcc-command-header,
   #toxic-command-center-concept .tcc-command {
     display: grid;
-    grid-template-columns: 135px minmax(180px, 1fr) minmax(160px, auto) minmax(110px, auto) 100px;
+    grid-template-columns: 135px minmax(180px, 1fr) minmax(160px, auto) minmax(110px, auto) minmax(240px, auto);
     gap: 16px;
     align-items: center;
   }
@@ -389,6 +389,13 @@
   #toxic-command-center-concept .tcc-platforms { color: var(--toxic-pink) !important; white-space: nowrap; }
   #toxic-command-center-concept .tcc-command-system { color: #d7e2da !important; white-space: nowrap; }
   #toxic-command-center-concept .tcc-permission-key { display: flex; flex-wrap: wrap; gap: 8px; margin: -8px 0 18px; }
+  #toxic-command-center-concept .tcc-access-list {
+    justify-self: end;
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: 6px;
+  }
   #toxic-command-center-concept .tcc-access {
     justify-self: end;
     padding: 5px 9px;
@@ -496,7 +503,8 @@
     #toxic-command-center-concept .tcc-shell { padding: 18px; }
     #toxic-command-center-concept .tcc-command-header { display: none; }
     #toxic-command-center-concept .tcc-command { grid-template-columns: 1fr; gap: 7px; }
-    #toxic-command-center-concept .tcc-access { justify-self: start; }
+    #toxic-command-center-concept .tcc-access,
+    #toxic-command-center-concept .tcc-access-list { justify-self: start; justify-content: flex-start; }
   }
 
   @media (max-width: 560px) {
@@ -580,7 +588,7 @@
       </div>
       <div class="tcc-permission-key" aria-label="Permission color key"><span class="tcc-access tcc-access-everyone">Everyone</span><span class="tcc-access tcc-access-mod">Moderator</span><span class="tcc-access tcc-access-admin">Admin</span><span class="tcc-access tcc-access-owner">Owner</span></div>
       <div class="tcc-list" id="tcc-command-list">
-        <div class="tcc-command-header" aria-hidden="true"><span>Command</span><span>Description</span><span>Platforms</span><span>System</span><span>Access</span></div>
+        <div class="tcc-command-header" aria-hidden="true"><span>Command</span><span>Description</span><span>Platforms</span><span>System</span><span>Allowed Roles</span></div>
         <div class="tcc-command" data-command="discord server invite twitch youtube kick streamer.bot everyone"><code>!discord</code><span>Join The Toxic Zone community.</span><span class="tcc-platforms">Twitch · YouTube · Kick</span><span class="tcc-command-system">Streamer.bot</span><span class="tcc-access tcc-access-everyone">Everyone</span></div>
         <div class="tcc-command" data-command="donation donate tip support paypal twitch youtube kick streamer.bot everyone"><code>!donation · !donate · !tip</code><span>Open the official Support Center.</span><span class="tcc-platforms">Twitch · YouTube · Kick</span><span class="tcc-command-system">Streamer.bot</span><span class="tcc-access tcc-access-everyone">Everyone</span></div>
         <div class="tcc-command" data-command="follow twitch channel streamer.bot everyone"><code>!follow</code><span>Open the official Twitch channel and follow the stream.</span><span class="tcc-platforms">Twitch</span><span class="tcc-command-system">Streamer.bot</span><span class="tcc-access tcc-access-everyone">Everyone</span></div>
@@ -701,6 +709,50 @@
     const search = root.querySelector('#tcc-command-search');
     const platformFilters = [...root.querySelectorAll('[data-command-platform]')];
     let activePlatform = 'all';
+
+    const accessHierarchy = {
+      everyone: [
+        ['everyone', 'Everyone'],
+        ['mod', 'Moderator'],
+        ['admin', 'Admin'],
+        ['owner', 'Owner'],
+      ],
+      mod: [
+        ['mod', 'Moderator'],
+        ['admin', 'Admin'],
+        ['owner', 'Owner'],
+      ],
+      admin: [
+        ['admin', 'Admin'],
+        ['owner', 'Owner'],
+      ],
+      owner: [
+        ['owner', 'Owner'],
+      ],
+    };
+
+    root.querySelectorAll('.tcc-command').forEach((row) => {
+      const minimumBadge = row.querySelector(':scope > .tcc-access');
+      if (!minimumBadge) return;
+
+      const minimumRole = Object.keys(accessHierarchy).find((role) => minimumBadge.classList.contains('tcc-access-' + role));
+      if (!minimumRole) return;
+
+      const roles = accessHierarchy[minimumRole];
+      const roleList = document.createElement('span');
+      roleList.className = 'tcc-access-list';
+      roleList.setAttribute('aria-label', 'Allowed roles: ' + roles.map(([, label]) => label).join(', '));
+
+      roles.forEach(([role, label]) => {
+        const badge = document.createElement('span');
+        badge.className = 'tcc-access tcc-access-' + role;
+        badge.textContent = label;
+        roleList.appendChild(badge);
+      });
+
+      row.dataset.command += ' ' + roles.map(([role, label]) => role + ' ' + label.toLowerCase()).join(' ');
+      minimumBadge.replaceWith(roleList);
+    });
 
     function filterCommands() {
       const query = search.value.trim().toLowerCase();
