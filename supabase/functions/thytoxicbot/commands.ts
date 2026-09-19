@@ -1,5 +1,7 @@
 export const APPLICATION_ID = Deno.env.get("DISCORD_APPLICATION_ID") ?? "1544711402873290873";
 export const APPEALS_CHANNEL_ID = Deno.env.get("DISCORD_APPEALS_CHANNEL_ID") ?? "1537193380864598037";
+export const POLLS_CHANNEL_ID = Deno.env.get("DISCORD_POLLS_CHANNEL_ID") ?? "1540905290440900759";
+export const POLLS_URL = "https://thy-toxic-gamer.github.io/Toxic-Command-Center/polls/";
 
 const STRING = 3;
 const INTEGER = 4;
@@ -17,9 +19,21 @@ const caseNumber = (required = true) => ({
   autocomplete: true,
 });
 
+const pollDuration = {
+  type: STRING,
+  name: "duration",
+  description: "How long voting stays open",
+  required: false,
+  choices: [
+    ["15 minutes", "15m"], ["30 minutes", "30m"], ["1 hour", "1h"], ["1.5 hours", "90m"],
+    ["3 hours", "3h"], ["6 hours", "6h"], ["12 hours", "12h"], ["1 day", "1d"],
+    ["3 days", "3d"], ["7 days", "7d"], ["No automatic close", "none"],
+  ].map(([name, value]) => ({ name, value })),
+};
+
 export const T_COMMAND = {
   name: "t",
-  description: "ThyToxicBot moderation and appeal commands",
+  description: "ThyToxicBot community, moderation, and appeal commands",
   type: 1,
   options: [
     { type: 1, name: "warn", description: "Issue a documented warning", options: [user, reason, evidence] },
@@ -168,6 +182,34 @@ export const T_COMMAND = {
         min_length: 21,
         max_length: 21,
       }],
+    },
+    { type: 1, name: "polls", description: "List open polls and open the Poll Center" },
+    {
+      type: 1,
+      name: "pollcreate",
+      description: "Staff: create a website poll and post it to Discord",
+      options: [
+        { type: STRING, name: "question", description: "Poll question", required: true, min_length: 3, max_length: 240 },
+        { type: STRING, name: "option1", description: "First choice", required: true, min_length: 1, max_length: 100 },
+        { type: STRING, name: "option2", description: "Second choice", required: true, min_length: 1, max_length: 100 },
+        { type: STRING, name: "option3", description: "Third choice", required: false, min_length: 1, max_length: 100 },
+        { type: STRING, name: "option4", description: "Fourth choice", required: false, min_length: 1, max_length: 100 },
+        { type: STRING, name: "option5", description: "Fifth choice", required: false, min_length: 1, max_length: 100 },
+        { type: STRING, name: "option6", description: "Sixth choice", required: false, min_length: 1, max_length: 100 },
+        pollDuration,
+      ],
+    },
+    {
+      type: 1,
+      name: "pollclose",
+      description: "Staff: close an open poll and publish final results",
+      options: [{ type: INTEGER, name: "poll_number", description: "Number shown in TTG-POLL-000001", required: true, min_value: 1 }],
+    },
+    {
+      type: 1,
+      name: "pollclear",
+      description: "Owner only: archive every poll",
+      options: [{ type: STRING, name: "confirmation", description: "Type CLEAR ALL POLLS", required: true, min_length: 15, max_length: 15 }],
     },
     { type: 1, name: "guide", description: "Administrator: refresh the staff procedure message" },
   ],

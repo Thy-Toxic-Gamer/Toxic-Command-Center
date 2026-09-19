@@ -1,5 +1,5 @@
 import nacl from "tweetnacl";
-import { APPLICATION_ID, APPEALS_CHANNEL_ID, DURATION_SECONDS, T_COMMAND } from "./commands.ts";
+import { APPLICATION_ID, APPEALS_CHANNEL_ID, DURATION_SECONDS, POLLS_CHANNEL_ID, POLLS_URL, T_COMMAND } from "./commands.ts";
 import { APPEAL_URL, STAFF_GUIDE_MESSAGES } from "./guide.ts";
 
 declare const EdgeRuntime: { waitUntil(promise: Promise<unknown>): void };
@@ -319,6 +319,7 @@ async function bootstrap(): Promise<void> {
     guild_id: channel.guild_id,
     application_id: APPLICATION_ID,
     appeals_channel_id: APPEALS_CHANNEL_ID,
+    polls_channel_id: existing?.polls_channel_id ?? POLLS_CHANNEL_ID,
     log_channel_id: existing?.log_channel_id ?? APPEALS_CHANNEL_ID,
     owner_user_id: existing?.owner_user_id ?? ownerId,
     moderator_role_ids: existing?.moderator_role_ids ?? [],
@@ -917,6 +918,180 @@ async function deleteCaseCommand(interaction: AnyRecord, config: AnyRecord, valu
   return ephemeral(`**${code}** and its event history were permanently deleted.`);
 }
 
+function pollCode(row: AnyRecord): string {
+  return `TTG-POLL-${String(row.poll_number).padStart(6, "0")}`;
+}
+
+function pollDiscordTimestamp(value: string, style = "F"): string {
+  return `<t:${Math.floor(new Date(value).getTime() / 1000)}:${style}>`;
+}
+
+async function pollSnapshot(pollId: string): Promise<AnyRecord | null> {
+  const rows = await dbSelect("polls", { select: "*", id: `eq.${pollId}`, limit: "1" });
+  const row = rows[0];
+  if (!row) return null;
+  const [options, votes] = await Promise.all([
+    dbSelect("poll_options", { select: "id,position,label", poll_id: `eq.${pollId}`, order: "position.asc" }),
+    dbSelect("poll_votes", { select: "option_id", poll_id: `eq.${pollId}` }),
+  ]);
+  const totalVotes = votes.length;
+  return {
+    ...row,
+    code: pollCode(row),
+    totalVotes,
+    options: options.map((option) => {
+      const count = votes.filter((vote) => vote.option_id === option.id).length;
+      return { ...option, count, percent: totalVotes ? Math.round((count / totalVotes) * 1000) / 10 : 0 };
+    }),
+  };
+}
+
+function pollDiscordPayload(poll: AnyRecord): AnyRecord {
+  const closed = poll.status !== "open";
+  const winner = closed && poll.totalVotes ? Math.max(...poll.options.map((option: AnyRecord) => option.count)) : -1;
+  const lines = poll.options.map((option: AnyRecord) => {
+    const marker = closed && winner > 0 && option.count === winner ? "🏆" : `${option.position}.`;
+    return `${marker} **${option.label}** — ${option.count} vote${option.count === 1 ? "" : "s"} (${option.percent}%)`;
+  });
+  const timing = poll.closes_at && !closed
+    ? `Voting closes ${pollDiscordTimestamp(poll.closes_at)} · ${pollDiscordTimestamp(poll.closes_at, "R")}`
+    : closed ? `Closed${poll.closed_at ? ` ${pollDiscordTimestamp(poll.closed_at, "R")}` : ""}` : "No automatic closing time";
+  return {
+    allowed_mentions: { parse: [] },
+    embeds: [{
+      title: `📊 ${poll.code} · ${closed ? "CLOSED" : "OPEN"}`,
+      description: `## ${poll.question}\n${poll.description ? `${poll.description}\n\n` : ""}${lines.join("\n")}\n\n**Total votes:** ${poll.totalVotes}\n${timing}`.slice(0, 4000),
+      color: closed ? 0x64748b : 0xb5ff18,
+      footer: { text: closed ? "Final results · Votes were collected on the official website" : "Website-only voting · You may change your vote until this poll closes" },
+      timestamp: new Date().toISOString(),
+    }],
+    components: closed ? [] : [{ type: 1, components: [{ type: 2, style: 5, label: "Vote on the website", url: POLLS_URL }] }],
+  };
+}
+
+async function syncPollDiscord(pollId: string): Promise<void> {
+  const poll = await pollSnapshot(pollId);
+  if (!poll) return;
+  const channelId = poll.discord_channel_id || POLLS_CHANNEL_ID;
+  let message: AnyRecord | null = null;
+  if (poll.discord_message_id) {
+    try {
+      message = await discord(`/channels/${channelId}/messages/${poll.discord_message_id}`, {
+        method: "PATCH",
+        body: JSON.stringify(pollDiscordPayload(poll)),
+      });
+    } catch (error) {
+      if (!(error instanceof DiscordError) || error.status !== 404) throw error;
+    }
+  }
+  if (!message && poll.status !== "archived") {
+    message = await discord(`/channels/${POLLS_CHANNEL_ID}/messages`, {
+      method: "POST",
+      body: JSON.stringify(pollDiscordPayload(poll)),
+    });
+  }
+  await dbUpdate("polls", `id=eq.${pollId}`, {
+    discord_channel_id: message?.channel_id ?? channelId,
+    discord_message_id: message?.id ?? poll.discord_message_id ?? null,
+    discord_last_error: null,
+    updated_at: new Date().toISOString(),
+  });
+}
+
+async function closeExpiredPolls(): Promise<void> {
+  const now = new Date().toISOString();
+  const due = await dbSelect("polls", { select: "id", status: "eq.open", closes_at: `lte.${now}`, limit: "100" });
+  for (const row of due) {
+    const updated = await dbUpdate("polls", `id=eq.${row.id}&status=eq.open`, { status: "closed", closed_at: now, updated_at: now });
+    if (!updated) continue;
+    await dbInsert("poll_events", { poll_id: row.id, event_type: "poll_closed", actor_platform: "system", actor_user_id: "poll-expiry", actor_name: "Automatic poll timer" });
+    await syncPollDiscord(row.id);
+  }
+}
+
+async function pollsCommand(): Promise<Json> {
+  await closeExpiredPolls();
+  const rows = await dbSelect("polls", { select: "poll_number,question,closes_at", status: "eq.open", order: "created_at.desc", limit: "10" });
+  const lines = rows.length
+    ? rows.map((row) => `• **${pollCode(row)}** — ${row.question}${row.closes_at ? ` · closes ${pollDiscordTimestamp(row.closes_at, "R")}` : ""}`).join("\n")
+    : "There are no open polls right now.";
+  return {
+    content: `${lines}\n\nVoting happens only on the official Poll Center.`,
+    flags: 64,
+    allowed_mentions: { parse: [] },
+    components: [{ type: 1, components: [{ type: 2, style: 5, label: "Open Poll Center", url: POLLS_URL }] }],
+  };
+}
+
+const POLL_DURATION_SECONDS: Record<string, number> = {
+  "15m": 900, "30m": 1800, "1h": 3600, "90m": 5400, "3h": 10800, "6h": 21600,
+  "12h": 43200, "1d": 86400, "3d": 259200, "7d": 604800, none: 0,
+};
+
+async function pollCreateCommand(interaction: AnyRecord, config: AnyRecord, values: Record<string, any>): Promise<Json> {
+  if (!isStaff(interaction, config)) return ephemeral("This command is restricted to authorized staff.");
+  const question = String(values.question || "").trim();
+  const options = [...new Set([values.option1, values.option2, values.option3, values.option4, values.option5, values.option6].map((value) => String(value || "").trim()).filter(Boolean))];
+  if (options.length < 2) return ephemeral("Add at least two different poll choices.");
+  const duration = String(values.duration || "1h");
+  const seconds = POLL_DURATION_SECONDS[duration];
+  if (seconds === undefined) return ephemeral("Choose a valid poll duration.");
+  const actor = appUser(interaction);
+  const now = Date.now();
+  const poll = await dbInsert("polls", {
+    question,
+    status: "open",
+    closes_at: seconds ? new Date(now + seconds * 1000).toISOString() : null,
+    created_by_platform: "discord",
+    created_by_user_id: actor.id,
+    created_by_name: displayName(actor, interaction.member),
+    discord_channel_id: POLLS_CHANNEL_ID,
+  });
+  if (!poll) throw new Error("The poll record could not be created.");
+  try {
+    await dbRequest("poll_options", {
+      method: "POST",
+      headers: { prefer: "return=minimal" },
+      body: JSON.stringify(options.map((label, index) => ({ poll_id: poll.id, position: index + 1, label }))),
+    });
+  } catch (error) {
+    await dbDelete("polls", `id=eq.${poll.id}`);
+    throw error;
+  }
+  await dbInsert("poll_events", { poll_id: poll.id, event_type: "poll_created", actor_platform: "discord", actor_user_id: actor.id, actor_name: displayName(actor, interaction.member), details: { duration } });
+  await syncPollDiscord(poll.id);
+  return ephemeral(`**${pollCode(poll)}** is open in <#${POLLS_CHANNEL_ID}> and on the Poll Center.`);
+}
+
+async function pollCloseCommand(interaction: AnyRecord, config: AnyRecord, values: Record<string, any>): Promise<Json> {
+  if (!isStaff(interaction, config)) return ephemeral("This command is restricted to authorized staff.");
+  const number = Number(values.poll_number);
+  const rows = await dbSelect("polls", { select: "id,poll_number,status", poll_number: `eq.${number}`, limit: "1" });
+  const row = rows[0];
+  if (!row) return ephemeral("That poll number could not be found.");
+  if (row.status !== "open") return ephemeral(`**${pollCode(row)}** is already closed or archived.`);
+  const actor = appUser(interaction);
+  const now = new Date().toISOString();
+  await dbUpdate("polls", `id=eq.${row.id}&status=eq.open`, { status: "closed", closed_at: now, updated_at: now });
+  await dbInsert("poll_events", { poll_id: row.id, event_type: "poll_closed", actor_platform: "discord", actor_user_id: actor.id, actor_name: displayName(actor, interaction.member) });
+  await syncPollDiscord(row.id);
+  return ephemeral(`**${pollCode(row)}** is closed and its final results are published.`);
+}
+
+async function pollClearCommand(interaction: AnyRecord, config: AnyRecord, values: Record<string, any>): Promise<Json> {
+  if (!isOwner(interaction, config)) return ephemeral("Only the bot owner can clear all polls.");
+  if (String(values.confirmation || "") !== "CLEAR ALL POLLS") return ephemeral("Type **CLEAR ALL POLLS** exactly to confirm.");
+  const rows = await dbSelect("polls", { select: "id", status: "neq.archived", limit: "500" });
+  const now = new Date().toISOString();
+  for (const row of rows) {
+    await dbUpdate("polls", `id=eq.${row.id}`, { status: "archived", closed_at: now, updated_at: now });
+    await syncPollDiscord(row.id);
+  }
+  const actor = appUser(interaction);
+  await dbInsert("poll_events", { poll_id: null, event_type: "all_polls_cleared", actor_platform: "discord", actor_user_id: actor.id, actor_name: displayName(actor, interaction.member), details: { count: rows.length } });
+  return ephemeral(`${rows.length} poll${rows.length === 1 ? " was" : "s were"} archived. Discord records were preserved.`);
+}
+
 async function guideCommand(interaction: AnyRecord, config: AnyRecord): Promise<Json> {
   if (!isAdministrator(interaction, config)) return ephemeral("Only an authorized administrator can refresh the staff guide.");
   await bootstrap();
@@ -940,6 +1115,10 @@ async function handleCommand(interaction: AnyRecord): Promise<Json> {
   if (subcommand === "caseclose") return await caseCloseCommand(interaction, config, values);
   if (subcommand === "casedelete") return await deleteCaseCommand(interaction, config, values);
   if (subcommand === "clearinfractions") return await clearAllInfractionsCommand(interaction, config, values);
+  if (subcommand === "polls") return await pollsCommand();
+  if (subcommand === "pollcreate") return await pollCreateCommand(interaction, config, values);
+  if (subcommand === "pollclose") return await pollCloseCommand(interaction, config, values);
+  if (subcommand === "pollclear") return await pollClearCommand(interaction, config, values);
   if (subcommand === "guide") return await guideCommand(interaction, config);
   return ephemeral("Unknown ThyToxicBot command.");
 }
