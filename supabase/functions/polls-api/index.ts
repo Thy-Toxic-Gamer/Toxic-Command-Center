@@ -254,8 +254,14 @@ async function closeExpired(admin: any) {
 async function publicState(admin: any, viewer?: Identity) {
   await closeExpired(admin);
   const polls = await hydratePolls(admin, ["open", "closed"], 60, viewer);
+  const staff = viewer ? await getStaff(admin, viewer) : null;
   return {
-    viewer: viewer ? { displayName: viewer.displayName, avatarUrl: viewer.avatarUrl } : null,
+    viewer: viewer ? {
+      displayName: viewer.displayName,
+      avatarUrl: viewer.avatarUrl,
+      isStaff: Boolean(staff),
+      staffRole: staff?.role ?? null,
+    } : null,
     open: polls.filter((poll: any) => poll.status === "open"),
     closed: polls.filter((poll: any) => poll.status === "closed").slice(0, 20),
   };
