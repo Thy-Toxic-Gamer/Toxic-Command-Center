@@ -96,7 +96,7 @@ export const STAFF_GUIDE_MESSAGES = [
         {
           name: "🔎 Finding and reviewing a case",
           value:
-            "• `/t cases` searches by member, action, status, case number, member name, or Discord ID.\n• `/t caseinfo case_number:<case>` displays the action, status, reason, moderator, DM-delivery result, and recent history.\n• Authorized staff can use the Appeals Center Staff Review page for the protected record.",
+            "• `/t infractions` lists everyone with a current infraction. An optional action filter shows only warnings, mutes, kicks, or bans.\n• `/t cases` searches by member, status, case number, member name, or Discord ID.\n• `/t caseinfo case_number:<case>` displays the action, status, reason, moderator, DM-delivery result, and recent history.\n• Authorized staff can use the Appeals Center Staff Review page for the protected record.",
         },
         {
           name: "💬 Member communication",
@@ -138,7 +138,7 @@ export const STAFF_GUIDE_MESSAGES = [
         {
           name: "🟢 ⁅𝐓𝐡𝐲𝐓☣︎𝐱𝐢𝐜𝐆𝐚𝐦𝐞𝐫⁆",
           value:
-            "Has final authority over protected settings, permanent deletion, exceptional cases, and owner-only commands. Accepted active warnings, mutes, and bans remain **pending reversal** until the matching reversal command is completed.",
+            "Has final authority over protected settings, permanent deletion, exceptional cases, and owner-only commands. `/t clearinfractions confirmation:CLEAR ALL INFRACTIONS` reverses every current infraction at once while preserving the protected audit history. Accepted active warnings, mutes, and bans remain **pending reversal** until the matching reversal command or owner all-clear is completed.",
         },
         {
           name: "Closing and retention",

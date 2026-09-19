@@ -91,6 +91,18 @@ export const T_COMMAND = {
         },
       ],
     },
+    {
+      type: 1,
+      name: "infractions",
+      description: "List every current infraction by member",
+      options: [{
+        type: STRING,
+        name: "action",
+        description: "Optionally show one infraction type",
+        required: false,
+        choices: ["warn", "mute", "kick", "ban"].map((value) => ({ name: value, value })),
+      }],
+    },
     { type: 1, name: "caseinfo", description: "Show a case and recent history", options: [caseNumber()] },
     {
       type: 1,
@@ -143,6 +155,19 @@ export const T_COMMAND = {
         caseNumber(),
         { type: STRING, name: "confirmation", description: "Type DELETE followed by the case number", required: true, max_length: 40 },
       ],
+    },
+    {
+      type: 1,
+      name: "clearinfractions",
+      description: "Owner only: reverse every current infraction",
+      options: [{
+        type: STRING,
+        name: "confirmation",
+        description: "Type CLEAR ALL INFRACTIONS",
+        required: true,
+        min_length: 21,
+        max_length: 21,
+      }],
     },
     { type: 1, name: "guide", description: "Administrator: refresh the staff procedure message" },
   ],

@@ -668,6 +668,106 @@ async function casesCommand(interaction: AnyRecord, config: AnyRecord, values: R
   return ephemeral(lines.join("\n").slice(0, 1900));
 }
 
+const OPEN_INFRACTION_STATUSES = ["active", "appealed", "under_review", "needs_information", "accepted_pending_reversal"];
+
+async function openInfractions(guildId: string, action?: string): Promise<AnyRecord[]> {
+  const rows: AnyRecord[] = [];
+  for (let offset = 0; offset < 1000; offset += 100) {
+    const page = await dbSelect("discord_moderation_cases", {
+      select: "*",
+      guild_id: `eq.${guildId}`,
+      status: `in.(${OPEN_INFRACTION_STATUSES.join(",")})`,
+      ...(action ? { action: `eq.${action}` } : {}),
+      order: "subject_display_name.asc,created_at.asc,id.asc",
+      limit: "100",
+      offset: String(offset),
+    });
+    rows.push(...page);
+    if (page.length < 100) break;
+  }
+  return rows;
+}
+
+async function infractionsCommand(interaction: AnyRecord, config: AnyRecord, values: Record<string, any>): Promise<Json> {
+  if (!isStaff(interaction, config)) return ephemeral("This command is restricted to authorized staff.");
+  const action = values.action ? String(values.action) : undefined;
+  const rows = await openInfractions(interaction.guild_id, action);
+  if (!rows.length) return ephemeral(action ? `No current **${action}** infractions were found.` : "No current infractions were found.");
+  const heading = `**Current infractions — ${rows.length}${action ? ` ${action}` : " total"}**`;
+  const lines: string[] = [heading];
+  for (const row of rows) {
+    const line = `• **${row.subject_display_name ?? row.subject_username}** · ${row.action} · ${row.case_code} · ${row.status.replaceAll("_", " ")}`;
+    if ([...lines, line].join("\n").length > 1850) break;
+    lines.push(line);
+  }
+  if (lines.length - 1 < rows.length) lines.push(`…and ${rows.length - (lines.length - 1)} more. Use \`/t cases\` to search a member or case.`);
+  return ephemeral(lines.join("\n"));
+}
+
+async function clearAllInfractionsCommand(interaction: AnyRecord, config: AnyRecord, values: Record<string, any>): Promise<Json> {
+  if (!isOwner(interaction, config)) return ephemeral("The all-clear command is restricted to the application owner.");
+  if (String(values.confirmation ?? "").trim().toUpperCase() !== "CLEAR ALL INFRACTIONS") {
+    return ephemeral("Confirmation did not match. Type exactly: `CLEAR ALL INFRACTIONS`");
+  }
+  const rows = await openInfractions(interaction.guild_id);
+  if (!rows.length) return ephemeral("There are no current infractions to clear.");
+  const actor = appUser(interaction);
+  const actorName = displayName(actor, interaction.member);
+  const now = new Date().toISOString();
+  let cleared = 0;
+  const failed: string[] = [];
+
+  for (const row of rows) {
+    let failure: string | null = null;
+    try {
+      if (row.action === "mute") {
+        await discordAction(`/guilds/${interaction.guild_id}/members/${row.subject_user_id}`, "PATCH", { communication_disabled_until: null }, row.case_code, "Owner all-clear");
+      } else if (row.action === "ban") {
+        await discordAction(`/guilds/${interaction.guild_id}/bans/${row.subject_user_id}`, "DELETE", undefined, row.case_code, "Owner all-clear");
+      }
+    } catch (error) {
+      if (!(error instanceof DiscordError) || error.status !== 404) failure = safeMessage(error);
+    }
+
+    if (failure) {
+      failed.push(`${row.case_code}: ${failure}`);
+      await insertEvent(row.id, {
+        event_type: "reversal_failed",
+        actor_type: "owner",
+        actor_user_id: actor.id,
+        actor_name: actorName,
+        visibility: "staff",
+        message: `Owner all-clear failed: ${failure}`,
+        metadata: { global_clear: true, previous_status: row.status },
+      });
+      continue;
+    }
+
+    const updated = await dbUpdate("discord_moderation_cases", `id=eq.${row.id}`, {
+      status: "reversed",
+      reversed_at: now,
+      reversed_by_user_id: actor.id,
+    });
+    await insertEvent(row.id, {
+      event_type: "reversal_succeeded",
+      actor_type: "owner",
+      actor_user_id: actor.id,
+      actor_name: actorName,
+      visibility: "staff",
+      message: "Cleared by the owner-wide all-clear command.",
+      metadata: { global_clear: true, previous_status: row.status },
+    });
+    try { await sendStaffReply(updated, `The infraction recorded in ${row.case_code} was cleared by the server owner.`); }
+    catch (error) { console.warn("all-clear DM failed", safeMessage(error)); }
+    try { await postCaseConversation(config, updated, `↩️ **Infraction cleared by ${actorName}**\nOwner-wide all-clear.`); }
+    catch (error) { console.warn("all-clear case log failed", safeMessage(error)); }
+    cleared += 1;
+  }
+
+  const failureSummary = failed.length ? ` ${failed.length} could not be cleared and remain active: ${failed.slice(0, 3).join(" | ")}` : "";
+  return ephemeral(`All-clear finished. **${cleared}** infraction${cleared === 1 ? "" : "s"} cleared.${failureSummary}`.slice(0, 1950));
+}
+
 async function caseInfoCommand(interaction: AnyRecord, config: AnyRecord, values: Record<string, any>): Promise<Json> {
   if (!isStaff(interaction, config)) return ephemeral("This command is restricted to authorized staff.");
   const row = await findCase(interaction.guild_id, String(values.case_number));
@@ -819,8 +919,8 @@ async function deleteCaseCommand(interaction: AnyRecord, config: AnyRecord, valu
 
 async function guideCommand(interaction: AnyRecord, config: AnyRecord): Promise<Json> {
   if (!isAdministrator(interaction, config)) return ephemeral("Only an authorized administrator can refresh the staff guide.");
-  await publishGuide(config);
-  return ephemeral("The Appeals & Moderation Review staff message is updated and pinned.");
+  await bootstrap();
+  return ephemeral("ThyToxicBot commands and the pinned Appeals & Moderation Review guide are updated.");
 }
 
 async function handleCommand(interaction: AnyRecord): Promise<Json> {
@@ -831,6 +931,7 @@ async function handleCommand(interaction: AnyRecord): Promise<Json> {
   if (["warn", "mute", "kick", "ban"].includes(subcommand)) return await createModerationCase(interaction, config, subcommand, values);
   if (["unwarn", "unmute", "unban"].includes(subcommand)) return await reverseAction(interaction, config, subcommand, values);
   if (subcommand === "cases") return await casesCommand(interaction, config, values);
+  if (subcommand === "infractions") return await infractionsCommand(interaction, config, values);
   if (subcommand === "caseinfo") return await caseInfoCommand(interaction, config, values);
   if (subcommand === "appealreply") return await appealReplyCommand(interaction, config, values);
   if (subcommand === "staffnote") return await staffNoteCommand(interaction, config, values);
@@ -838,6 +939,7 @@ async function handleCommand(interaction: AnyRecord): Promise<Json> {
   if (subcommand === "caseupdate") return await caseUpdateCommand(interaction, config, values);
   if (subcommand === "caseclose") return await caseCloseCommand(interaction, config, values);
   if (subcommand === "casedelete") return await deleteCaseCommand(interaction, config, values);
+  if (subcommand === "clearinfractions") return await clearAllInfractionsCommand(interaction, config, values);
   if (subcommand === "guide") return await guideCommand(interaction, config);
   return ephemeral("Unknown ThyToxicBot command.");
 }

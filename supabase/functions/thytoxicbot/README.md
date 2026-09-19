@@ -27,6 +27,9 @@ the server from the configured appeals channel, registers the `/t` command,
 stores the application owner as the owner-only identity, and posts or updates the
 staff guide in the appeals channel.
 
+Running `/t guide` later refreshes both the registered command set and the
+pinned staff guide after a function update.
+
 ## Bot permissions
 
 Use application commands, view channels, send messages, embed links, read
@@ -49,4 +52,9 @@ Install/update link:
 - Member replies and staff replies remain attached to the protected case.
 - Accepted appeals that still require a reversal become
   `accepted_pending_reversal`; an administrator must run the matching reversal.
+- `/t infractions` gives authorized staff a compact list of every current
+  infraction, with an optional action filter.
+- `/t clearinfractions` is owner-only, requires the exact confirmation
+  `CLEAR ALL INFRACTIONS`, reverses current warnings/timeouts/bans, and keeps
+  the protected case and event history for audit purposes.
 - Records and staff notes automatically purge after six months.
