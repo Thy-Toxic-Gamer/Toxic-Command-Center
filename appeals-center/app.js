@@ -73,8 +73,9 @@ function completeOAuthReturn() {
   if (error || !token || !expected || hash.get("state") !== expected || !PROVIDERS[platform]) {
     sessionStorage.setItem("thy_toxic_appeals_auth_error", error || "Sign-in could not be verified. Please try again.");
     sessionStorage.removeItem(RETURN_KEY);
-    if (returnTo === "games" || returnTo === "games-staff") {
-      location.replace(returnTo === "games-staff" ? "../games/staff.html?auth=error" : "../games/?auth=error");
+    if (["games", "games-staff", "polls", "polls-staff"].includes(returnTo)) {
+      const destinations = { games: "../games/?auth=error", "games-staff": "../games/staff.html?auth=error", polls: "../polls/?auth=error", "polls-staff": "../polls/staff.html?auth=error" };
+      location.replace(destinations[returnTo]);
       return "redirecting";
     }
     return true;
@@ -94,6 +95,15 @@ function completeOAuthReturn() {
   }
   if (returnTo === "games-staff") {
     location.replace("../games/staff.html");
+    return "redirecting";
+  }
+  if (returnTo === "polls") {
+    location.replace("../polls/");
+    return "redirecting";
+  }
+  if (returnTo === "polls-staff") {
+    sessionStorage.setItem(ACTIVE_KEY, platform);
+    location.replace("../polls/staff.html");
     return "redirecting";
   }
   if (returnTo === "track") sessionStorage.setItem(AFTER_AUTH_VIEW_KEY, "track");
