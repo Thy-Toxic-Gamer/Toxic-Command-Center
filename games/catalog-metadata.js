@@ -37,20 +37,4 @@ window.GAME_COLLECTION_METADATA = {
       "Mega Man X5", "Mega Man X6", "Mega Man X7", "Mega Man X8",
     ],
   },
-  "PS4#052": {
-    displayId: "PS4#052–PS4#053",
-    searchAliases: [
-      "PS4#052", "PS4#053", "Kingdom Hearts Dream Drop Distance HD",
-      "Kingdom Hearts Birth by Sleep 0.2", "A Fragmentary Passage", "Kingdom Hearts Back Cover",
-    ],
-  },
-  "PS4#054": {
-    displayId: "PS4#054–PS4#059",
-    searchAliases: [
-      "PS4#054", "PS4#055", "PS4#056", "PS4#057", "PS4#058", "PS4#059",
-      "Kingdom Hearts Final Mix", "Kingdom Hearts Re Chain of Memories",
-      "Kingdom Hearts 358 2 Days", "Kingdom Hearts II Final Mix", "Kingdom Hearts 2 Final Mix",
-      "Kingdom Hearts Birth by Sleep Final Mix", "Kingdom Hearts Re coded",
-    ],
-  },
 };
