@@ -49,7 +49,7 @@ function startAuth(platform, returnTo = "./", purpose = "signin") {
   sessionStorage.setItem(OAUTH_STATE_KEY, state);
   sessionStorage.setItem(OAUTH_PROVIDER_KEY, platform);
   sessionStorage.setItem(OAUTH_PURPOSE_KEY, purpose);
-  const safeReturn = returnTo === "staff.html" ? "staff.html" : returnTo === "track" ? "track" : returnTo === "tickets-staff" ? "tickets-staff" : "./";
+  const safeReturn = returnTo === "staff.html" ? "staff.html" : returnTo === "track" ? "track" : returnTo === "tickets-staff" ? "tickets-staff" : returnTo === "giveaways" ? "giveaways" : returnTo === "giveaways-staff" ? "giveaways-staff" : "./";
   sessionStorage.setItem(RETURN_KEY, safeReturn);
   const common = { response_type: "token", client_id: PROVIDERS[platform].clientId, redirect_uri: REDIRECT_URI, state };
   const query = new URLSearchParams(platform === "twitch"
@@ -73,8 +73,8 @@ function completeOAuthReturn() {
   if (error || !token || !expected || hash.get("state") !== expected || !PROVIDERS[platform]) {
     sessionStorage.setItem("thy_toxic_appeals_auth_error", error || "Sign-in could not be verified. Please try again.");
     sessionStorage.removeItem(RETURN_KEY);
-    if (["games", "games-staff", "polls", "polls-staff", "tickets-staff"].includes(returnTo)) {
-      const destinations = { games: "../games/?auth=error", "games-staff": "../games/staff.html?auth=error", polls: "../polls/?auth=error", "polls-staff": "../polls/staff.html?auth=error", "tickets-staff": "../tickets/staff.html?auth=error" };
+    if (["games", "games-staff", "polls", "polls-staff", "tickets-staff", "giveaways", "giveaways-staff"].includes(returnTo)) {
+      const destinations = { games: "../games/?auth=error", "games-staff": "../games/staff.html?auth=error", polls: "../polls/?auth=error", "polls-staff": "../polls/staff.html?auth=error", "tickets-staff": "../tickets/staff.html?auth=error", giveaways: "../giveaways/?auth=error", "giveaways-staff": "../giveaways/staff.html?auth=error" };
       location.replace(destinations[returnTo]);
       return "redirecting";
     }
@@ -109,6 +109,16 @@ function completeOAuthReturn() {
   if (returnTo === "tickets-staff") {
     sessionStorage.setItem(ACTIVE_KEY, platform);
     location.replace("../tickets/staff.html");
+    return "redirecting";
+  }
+  if (returnTo === "giveaways") {
+    sessionStorage.setItem(ACTIVE_KEY, platform);
+    location.replace("../giveaways/");
+    return "redirecting";
+  }
+  if (returnTo === "giveaways-staff") {
+    sessionStorage.setItem(ACTIVE_KEY, platform);
+    location.replace("../giveaways/staff.html");
     return "redirecting";
   }
   if (returnTo === "track") sessionStorage.setItem(AFTER_AUTH_VIEW_KEY, "track");
