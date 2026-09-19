@@ -8,10 +8,13 @@ The public hub for ThyToxicGamer.
 - System Specifications
 - System Peripherals
 - Official Socials
+- Game Requests
+- Poll Center
 - Appeals Center
+- Support Center
 
 ## Hosting
 
-This is a static GitHub Pages website. Open `index.html` directly for local testing.
+The public interface is hosted on GitHub Pages. Secure workflows use Supabase Edge Functions and protected database tables; ThyToxicBot connects Discord moderation and community commands to those services.
 
-The current release does not require a database or Supabase project. Live integrations can be added later when their data sources and authentication requirements are finalized.
+Poll voting is website-only and requires a verified Twitch session. Authorized staff can create and close polls from the website or with ThyToxicBot in Discord.
