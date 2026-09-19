@@ -365,7 +365,7 @@
   #toxic-command-center-concept .tcc-command-header,
   #toxic-command-center-concept .tcc-command {
     display: grid;
-    grid-template-columns: 135px minmax(180px, 1fr) minmax(160px, auto) minmax(110px, auto) minmax(240px, auto);
+    grid-template-columns: minmax(130px, .85fr) minmax(260px, 2.4fr) minmax(150px, 1fr) minmax(125px, .85fr) minmax(300px, 1.8fr);
     gap: 16px;
     align-items: center;
   }
@@ -377,7 +377,9 @@
     letter-spacing: .09em;
     text-transform: uppercase;
   }
-  #toxic-command-center-concept .tcc-command-header span:last-child { text-align: right; }
+  #toxic-command-center-concept .tcc-command-header > *,
+  #toxic-command-center-concept .tcc-command > * { min-width: 0; }
+  #toxic-command-center-concept .tcc-command-header span:last-child { text-align: left; }
   #toxic-command-center-concept .tcc-command {
     min-height: 62px;
     padding: 12px 16px;
@@ -390,14 +392,14 @@
   #toxic-command-center-concept .tcc-command-system { color: #d7e2da !important; white-space: nowrap; }
   #toxic-command-center-concept .tcc-permission-key { display: flex; flex-wrap: wrap; gap: 8px; margin: -8px 0 18px; }
   #toxic-command-center-concept .tcc-access-list {
-    justify-self: end;
+    justify-self: start;
     display: flex;
     flex-wrap: wrap;
-    justify-content: flex-end;
+    justify-content: flex-start;
     gap: 6px;
   }
   #toxic-command-center-concept .tcc-access {
-    justify-self: end;
+    justify-self: start;
     padding: 5px 9px;
     border-radius: 999px;
     font-size: 11px !important;

@@ -182,7 +182,7 @@ h1 { margin: 0; font-size: clamp(2.25rem, 5vw, 4.6rem); letter-spacing: -.045em;
 .game-card.emulation { --accent: var(--emu); }
 .filter.genesis::before { outline: 1px solid #777; }
 .game-card.sega-genesis { border-color: #4f4f4f; }
-.game-card.sega-genesis .game-id, .game-card.sega-genesis .detail-system { color: #f4f4f4; }
+.game-card.sega-genesis .detail-id, .game-card.sega-genesis .detail-system { color: #f4f4f4; }
 .cover-frame { position: relative; aspect-ratio: 3 / 4; overflow: hidden; background: color-mix(in srgb, var(--accent) 10%, #0d100e); }
 .cover-frame.is-landscape { aspect-ratio: 16 / 9; }
 .cover-frame::after { content: ""; position: absolute; inset: auto 0 0; height: 40%; background: linear-gradient(transparent, rgba(0,0,0,.72)); pointer-events: none; }
@@ -196,8 +196,7 @@ h1 { margin: 0; font-size: clamp(2.25rem, 5vw, 4.6rem); letter-spacing: -.045em;
 .cover-frame.has-cover .cover-backdrop { opacity: 1; }
 .game-card.landscape-art { min-height: 280px; }
 .game-card:hover .cover-art, .game-card:focus-within .cover-art { transform: scale(1.035); }
-.card-top { position: absolute; z-index: 2; inset: 10px 10px auto; display: flex; align-items: center; justify-content: space-between; gap: 8px; transition: opacity .15s; }
-.game-id { color: var(--accent); font-size: .72rem; font-weight: 900; letter-spacing: .09em; }
+.card-top { position: absolute; z-index: 2; inset: 10px 10px auto; display: flex; align-items: center; justify-content: flex-end; gap: 8px; transition: opacity .15s; }
 .access-badge { max-width: 116px; padding: 4px 7px; border: 1px solid color-mix(in srgb, var(--accent) 55%, #334034); border-radius: 999px; color: #fff; background: rgba(0,0,0,.68); font-size: .66rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .card-copy { min-height: 90px; display: grid; align-content: space-between; gap: 10px; padding: 13px 14px 14px; }
 .game-card h2 { margin: 0; font-size: 1rem; line-height: 1.25; letter-spacing: -.012em; }
@@ -205,7 +204,9 @@ h1 { margin: 0; font-size: clamp(2.25rem, 5vw, 4.6rem); letter-spacing: -.045em;
 .card-detail { position: absolute; z-index: 3; inset: 0; display: flex; flex-direction: column; overflow-y: auto; padding: 17px; opacity: 0; transform: translateY(9px); pointer-events: none; background: linear-gradient(155deg, color-mix(in srgb, var(--accent) 18%, #101311), #090b0a 65%); transition: opacity .2s, transform .2s; }
 .game-card:hover .card-detail, .game-card:focus-within .card-detail { opacity: 1; transform: none; pointer-events: auto; }
 .game-card:hover .card-top, .game-card:focus-within .card-top { opacity: 0; pointer-events: none; }
+.detail-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
 .detail-system { color: var(--accent); font-size: .72rem; font-weight: 900; letter-spacing: .09em; text-transform: uppercase; }
+.detail-id { color: var(--accent); font-size: .72rem; font-weight: 900; letter-spacing: .09em; white-space: nowrap; }
 .card-detail p { margin: 10px 0 12px; color: #e5e9e5; font-size: .82rem; line-height: 1.45; }
 .detail-meta { display: flex; flex-wrap: wrap; gap: 6px; margin-top: auto; }
 .detail-meta span { padding: 4px 7px; border-radius: 7px; background: rgba(255,255,255,.07); color: #d7ddd7; font-size: .67rem; }

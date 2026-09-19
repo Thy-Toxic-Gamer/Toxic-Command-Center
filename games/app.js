@@ -453,11 +453,11 @@
         <div class="cover-frame${landscape ? " is-landscape" : ""}">
           <div class="cover-fallback" aria-hidden="true"><span>Cover unavailable</span><b>${escapeHtml(game.title)}</b></div>
           ${coverUrl ? `<img class="cover-backdrop" src="${escapeHtml(coverUrl)}" alt="" aria-hidden="true" loading="lazy" decoding="async" referrerpolicy="no-referrer"><img class="cover-art" src="${escapeHtml(coverUrl)}" alt="${escapeHtml(game.title)} cover art" loading="lazy" decoding="async" referrerpolicy="no-referrer">` : ""}
-          <div class="card-top"><span class="game-id">${escapeHtml(game.displayId || game.id)}</span><span class="access-badge">${escapeHtml(status)}</span></div>
+          <div class="card-top"><span class="access-badge">${escapeHtml(status)}</span></div>
         </div>
         <div class="card-copy"><h2>${escapeHtml(game.title)}</h2><div class="system-line"><span>${escapeHtml(game.system)}</span><span>${escapeHtml(year)}</span></div></div>
         <div class="card-detail">
-          <span class="detail-system">${escapeHtml(game.system)}</span>
+          <div class="detail-head"><span class="detail-system">${escapeHtml(game.system)}</span><span class="detail-id">${escapeHtml(game.displayId || game.id)}</span></div>
           <p>${escapeHtml(game.summary)}</p>
           <div class="detail-meta">
             <span>${escapeHtml(year)}</span>
