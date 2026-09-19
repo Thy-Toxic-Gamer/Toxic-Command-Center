@@ -212,6 +212,7 @@ export const T_COMMAND = {
       description: "Owner only: archive every poll",
       options: [{ type: STRING, name: "confirmation", description: "Type CLEAR ALL POLLS", required: true, min_length: 15, max_length: 15 }],
     },
+    { type: 1, name: "communityinfo", description: "Owner only: refresh the community information panels" },
     { type: 1, name: "guide", description: "Administrator: refresh the staff procedure message" },
   ],
 };
