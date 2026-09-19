@@ -393,8 +393,7 @@
       const show = () => {
         const frame = img.closest(".cover-frame");
         const card = img.closest(".game-card");
-        const naturallyWide = img.naturalWidth > img.naturalHeight * 1.08;
-        if (card?.classList.contains("pc") || naturallyWide) {
+        if (card?.classList.contains("pc")) {
           frame?.classList.add("is-landscape");
           card?.classList.add("landscape-art");
         }
@@ -453,7 +452,7 @@
       return `<article class="game-card ${colors[game.category] || ""}${landscape ? " landscape-art" : ""}" tabindex="0">
         <div class="cover-frame${landscape ? " is-landscape" : ""}">
           <div class="cover-fallback" aria-hidden="true"><span>Cover unavailable</span><b>${escapeHtml(game.title)}</b></div>
-          ${coverUrl ? `<img class="cover-art" src="${escapeHtml(coverUrl)}" alt="${escapeHtml(game.title)} cover art" loading="lazy" decoding="async" referrerpolicy="no-referrer">` : ""}
+          ${coverUrl ? `<img class="cover-backdrop" src="${escapeHtml(coverUrl)}" alt="" aria-hidden="true" loading="lazy" decoding="async" referrerpolicy="no-referrer"><img class="cover-art" src="${escapeHtml(coverUrl)}" alt="${escapeHtml(game.title)} cover art" loading="lazy" decoding="async" referrerpolicy="no-referrer">` : ""}
           <div class="card-top"><span class="game-id">${escapeHtml(game.displayId || game.id)}</span><span class="access-badge">${escapeHtml(status)}</span></div>
         </div>
         <div class="card-copy"><h2>${escapeHtml(game.title)}</h2><div class="system-line"><span>${escapeHtml(game.system)}</span><span>${escapeHtml(year)}</span></div></div>
