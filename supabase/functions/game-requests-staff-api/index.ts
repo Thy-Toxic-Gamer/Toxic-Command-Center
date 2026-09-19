@@ -367,7 +367,7 @@ async function dashboard(admin: any, identity: Identity, staff: any) {
     availability(admin),
     admin.from("game_requests").select(REQUEST_SELECT).in("status", ACTIVE_STATUSES).order("created_at", { ascending: false }).limit(100),
     admin.from("game_requests").select(REQUEST_SELECT).in("status", FINAL_STATUSES).order("updated_at", { ascending: false }).limit(250),
-    admin.from("game_catalog").select("id,title,system,cover_url").eq("requestable", true).order("title", { ascending: true }),
+    admin.from("game_catalog").select("id,title,system,cover_url,display_id,search_aliases").eq("requestable", true).order("title", { ascending: true }),
   ]);
   if (queueResult.error || archiveResult.error || catalogResult.error) throw new ApiError("Game Request records could not be loaded.", 500);
   return { staff: { platform: identity.platform, displayName: identity.displayName, avatarUrl: identity.avatarUrl, role: staff.role }, availability: state, queue: queueResult.data ?? [], archive: archiveResult.data ?? [], catalog: catalogResult.data ?? [] };
