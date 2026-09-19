@@ -13,7 +13,11 @@
   const PENDING_GAME_KEY = "thy_toxic_games_pending_game";
   const PENDING_PLAN_KEY = "thy_toxic_games_pending_plan";
 
-  const games = Array.isArray(window.GAME_CATALOG) ? window.GAME_CATALOG : [];
+  const collectionMetadata = window.GAME_COLLECTION_METADATA || {};
+  const games = (Array.isArray(window.GAME_CATALOG) ? window.GAME_CATALOG : []).map((game) => ({
+    ...game,
+    ...(collectionMetadata[game.id] || {}),
+  }));
   const covers = window.GAME_COVERS || {};
   const grid = document.querySelector("#gameGrid");
   const search = document.querySelector("#searchInput");
@@ -76,6 +80,67 @@
     "&": "&amp;", "<": "&lt;", ">": "&gt;", "'": "&#39;", '"': "&quot;",
   })[char]);
   const safeId = (value) => String(value).replace(/[^A-Za-z0-9]+/g, "-").replace(/^-|-$/g, "");
+  const romanNumbers = { i: "1", ii: "2", iii: "3", iv: "4", v: "5", vi: "6", vii: "7", viii: "8", ix: "9", x: "10" };
+
+  function normalizeSearch(value) {
+    return String(value || "")
+      .normalize("NFKD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .toLocaleLowerCase()
+      .replace(/&/g, " and ")
+      .replace(/([a-z])([0-9])/g, "$1 $2")
+      .replace(/([0-9])([a-z])/g, "$1 $2")
+      .replace(/[^a-z0-9]+/g, " ")
+      .trim()
+      .split(/\s+/)
+      .filter(Boolean)
+      .map((part) => romanNumbers[part] || (/^0+\d+$/.test(part) ? String(Number(part)) : part))
+      .join(" ");
+  }
+
+  function editDistance(left, right) {
+    const previous = Array.from({ length: right.length + 1 }, (_, index) => index);
+    for (let leftIndex = 1; leftIndex <= left.length; leftIndex += 1) {
+      let diagonal = previous[0];
+      previous[0] = leftIndex;
+      for (let rightIndex = 1; rightIndex <= right.length; rightIndex += 1) {
+        const above = previous[rightIndex];
+        previous[rightIndex] = left[leftIndex - 1] === right[rightIndex - 1]
+          ? diagonal
+          : 1 + Math.min(diagonal, previous[rightIndex - 1], above);
+        diagonal = above;
+      }
+    }
+    return previous[right.length];
+  }
+
+  function searchMatches(game, rawQuery) {
+    const query = normalizeSearch(rawQuery);
+    if (!query) return true;
+    const compactIdQuery = String(rawQuery).trim().replace(/\s+/g, "").toUpperCase();
+    if (/^[A-Z]{1,5}\d*#\d{1,4}$/.test(compactIdQuery)) {
+      return [game.id, game.displayId, ...(Array.isArray(game.searchAliases) ? game.searchAliases : [])]
+        .filter((value) => String(value || "").includes("#"))
+        .some((value) => normalizeSearch(value) === query);
+    }
+    const haystack = normalizeSearch([
+      game.id, game.displayId, game.title, game.system, game.genre || "",
+      ...(Array.isArray(game.searchAliases) ? game.searchAliases : []),
+    ].filter(Boolean).join(" "));
+    if (haystack.includes(query) || haystack.replaceAll(" ", "").includes(query.replaceAll(" ", ""))) return true;
+    const words = haystack.split(" ");
+    const candidates = [...words, ...words.slice(0, -1).map((word, index) => word + words[index + 1])];
+    return query.split(" ").every((token) => candidates.some((word) => {
+      if (/^\d+$/.test(token)) return word === token;
+      if (word === token || word.startsWith(token) || (token.length >= 4 && word.includes(token))) return true;
+      if (word.length === token.length) {
+        const differences = [...token].map((char, index) => char !== word[index] ? index : -1).filter((index) => index >= 0);
+        if (differences.length === 2 && differences[1] === differences[0] + 1 && token[differences[0]] === word[differences[1]] && token[differences[1]] === word[differences[0]]) return true;
+      }
+      const allowance = token.length >= 8 ? 2 : token.length >= 4 ? 1 : 0;
+      return allowance > 0 && Math.abs(word.length - token.length) <= allowance && editDistance(word, token) <= allowance;
+    }));
+  }
   const randomizedGames = [...games];
   for (let index = randomizedGames.length - 1; index > 0; index -= 1) {
     const random = new Uint32Array(1);
@@ -356,11 +421,10 @@
   }
 
   function filteredGames() {
-    const term = search.value.trim().toLocaleLowerCase();
+    const term = search.value.trim();
     const result = games.filter((game) => {
       const inCategory = activeFilter === "all" || game.category === activeFilter;
-      const haystack = `${game.id} ${game.title} ${game.system} ${game.genre || ""}`.toLocaleLowerCase();
-      return inCategory && (!term || haystack.includes(term));
+      return inCategory && searchMatches(game, term);
     });
     return result.sort((a, b) => {
       if (sort.value === "random") return activeFilter === "all"
@@ -390,7 +454,7 @@
         <div class="cover-frame${landscape ? " is-landscape" : ""}">
           <div class="cover-fallback" aria-hidden="true"><span>Cover unavailable</span><b>${escapeHtml(game.title)}</b></div>
           ${coverUrl ? `<img class="cover-art" src="${escapeHtml(coverUrl)}" alt="${escapeHtml(game.title)} cover art" loading="lazy" decoding="async" referrerpolicy="no-referrer">` : ""}
-          <div class="card-top"><span class="game-id">${escapeHtml(game.id)}</span><span class="access-badge">${escapeHtml(status)}</span></div>
+          <div class="card-top"><span class="game-id">${escapeHtml(game.displayId || game.id)}</span><span class="access-badge">${escapeHtml(status)}</span></div>
         </div>
         <div class="card-copy"><h2>${escapeHtml(game.title)}</h2><div class="system-line"><span>${escapeHtml(game.system)}</span><span>${escapeHtml(year)}</span></div></div>
         <div class="card-detail">
@@ -444,7 +508,7 @@
     sessionStorage.removeItem(PENDING_PLAN_KEY);
     requestComplete = false;
     requestTitle.textContent = game.title;
-    requestMeta.textContent = `${game.id} · ${game.system} · ${game.year || "Year pending"}`;
+    requestMeta.textContent = `${game.displayId || game.id} · ${game.system} · ${game.year || "Year pending"}`;
     dialog.querySelectorAll(".price-options button").forEach((button) => {
       button.classList.toggle("selected", button.dataset.plan === selectedPlan);
       button.disabled = false;

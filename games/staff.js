@@ -26,6 +26,79 @@
 
   const escapeHtml = (value = "") => String(value).replace(/[&<>'"]/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "'": "&#39;", '"': "&quot;" })[char]);
   const requestCode = (row) => `GR-${String(row.request_number).padStart(6, "0")}`;
+  const romanNumbers = { i: "1", ii: "2", iii: "3", iv: "4", v: "5", vi: "6", vii: "7", viii: "8", ix: "9", x: "10" };
+
+  function normalizeSearch(value) {
+    return String(value || "").normalize("NFKD").replace(/[\u0300-\u036f]/g, "").toLocaleLowerCase()
+      .replace(/&/g, " and ").replace(/([a-z])([0-9])/g, "$1 $2").replace(/([0-9])([a-z])/g, "$1 $2")
+      .replace(/[^a-z0-9]+/g, " ").trim().split(/\s+/).filter(Boolean)
+      .map((part) => romanNumbers[part] || (/^0+\d+$/.test(part) ? String(Number(part)) : part)).join(" ");
+  }
+
+  function editDistance(left, right) {
+    const previous = Array.from({ length: right.length + 1 }, (_, index) => index);
+    for (let leftIndex = 1; leftIndex <= left.length; leftIndex += 1) {
+      let diagonal = previous[0];
+      previous[0] = leftIndex;
+      for (let rightIndex = 1; rightIndex <= right.length; rightIndex += 1) {
+        const above = previous[rightIndex];
+        previous[rightIndex] = left[leftIndex - 1] === right[rightIndex - 1]
+          ? diagonal : 1 + Math.min(diagonal, previous[rightIndex - 1], above);
+        diagonal = above;
+      }
+    }
+    return previous[right.length];
+  }
+
+  function catalogLabel(game) {
+    return `${game.title} · ${game.display_id || game.id} · ${game.system}`;
+  }
+
+  function catalogMatches(game, rawQuery) {
+    const query = normalizeSearch(rawQuery);
+    if (!query) return true;
+    const compactIdQuery = String(rawQuery).trim().replace(/\s+/g, "").toUpperCase();
+    if (/^[A-Z]{1,5}\d*#\d{1,4}$/.test(compactIdQuery)) {
+      return [game.id, game.display_id, ...(Array.isArray(game.search_aliases) ? game.search_aliases : [])]
+        .filter((value) => String(value || "").includes("#"))
+        .some((value) => normalizeSearch(value) === query);
+    }
+    const haystack = normalizeSearch([
+      game.id, game.display_id, game.title, game.system,
+      ...(Array.isArray(game.search_aliases) ? game.search_aliases : []),
+    ].filter(Boolean).join(" "));
+    if (haystack.includes(query) || haystack.replaceAll(" ", "").includes(query.replaceAll(" ", ""))) return true;
+    const words = haystack.split(" ");
+    const candidates = [...words, ...words.slice(0, -1).map((word, index) => word + words[index + 1])];
+    return query.split(" ").every((token) => candidates.some((word) => {
+      if (/^\d+$/.test(token)) return word === token;
+      if (word === token || word.startsWith(token) || (token.length >= 4 && word.includes(token))) return true;
+      if (word.length === token.length) {
+        const differences = [...token].map((char, index) => char !== word[index] ? index : -1).filter((index) => index >= 0);
+        if (differences.length === 2 && differences[1] === differences[0] + 1 && token[differences[0]] === word[differences[1]] && token[differences[1]] === word[differences[0]]) return true;
+      }
+      const allowance = token.length >= 8 ? 2 : token.length >= 4 ? 1 : 0;
+      return allowance > 0 && Math.abs(word.length - token.length) <= allowance && editDistance(word, token) <= allowance;
+    }));
+  }
+
+  function catalogResults(query) {
+    const normalized = normalizeSearch(query);
+    return (dashboardData?.catalog || []).filter((game) => catalogMatches(game, query)).sort((left, right) => {
+      const leftExact = normalizeSearch(catalogLabel(left)) === normalized || normalizeSearch(left.id) === normalized;
+      const rightExact = normalizeSearch(catalogLabel(right)) === normalized || normalizeSearch(right.id) === normalized;
+      return Number(rightExact) - Number(leftExact) || left.title.localeCompare(right.title);
+    });
+  }
+
+  function resolveCatalogGame(value) {
+    const normalized = normalizeSearch(value);
+    const exact = (dashboardData?.catalog || []).find((game) =>
+      normalizeSearch(catalogLabel(game)) === normalized || normalizeSearch(game.id) === normalized || normalizeSearch(game.display_id) === normalized);
+    if (exact) return exact;
+    const matches = catalogResults(value);
+    return matches.length === 1 ? matches[0] : null;
+  }
 
   function randomState() {
     const bytes = new Uint8Array(32);
@@ -113,7 +186,9 @@
   }
 
   function requestCard(row) {
-    const gameOptions = (dashboardData?.catalog || []).map((game) => `<option value="${escapeHtml(game.id)}"${game.id === row.game_id ? " selected" : ""}>${escapeHtml(game.title)} · ${escapeHtml(game.system)}</option>`).join("");
+    const currentGame = (dashboardData?.catalog || []).find((game) => game.id === row.game_id);
+    const gameListId = `game-options-${row.id}`;
+    const gameOptions = (dashboardData?.catalog || []).slice(0, 20).map((game) => `<option value="${escapeHtml(catalogLabel(game))}"></option>`).join("");
     const next = row.status === "pending"
       ? { status: row.is_owner ? "approved" : "awaiting_payment", label: row.is_owner ? "Approve request" : "Approve & request payment" }
       : row.status === "approved"
@@ -135,7 +210,7 @@
         <label class="action-field note-field"><span>Staff note <small>optional</small></span><input data-staff-note maxlength="1000" placeholder="Reason or update details"></label>
         <label class="action-field secondary-field"><span>Other action</span><select data-secondary-status><option value="">Choose only when needed</option><option value="denied">Deny request</option><option value="cancelled">Cancel request</option><option value="expired">Expire now</option></select></label>
         <button class="secondary-action" type="button" data-secondary-action>Apply other action</button>
-        <label class="action-field game-change-field"><span>Staff game correction <small>unlimited</small></span><select data-game-change>${gameOptions}</select></label>
+        <label class="action-field game-change-field"><span>Staff game correction <small>type a title, included game, or catalog number</small></span><input data-game-change list="${escapeHtml(gameListId)}" autocomplete="off" placeholder="Search games…" value="${escapeHtml(currentGame ? catalogLabel(currentGame) : `${row.game_title} · ${row.game_id} · ${row.game_system}`)}"><datalist id="${escapeHtml(gameListId)}" data-game-list>${gameOptions}</datalist></label>
         <button class="change-game" type="button" data-change-game>Change game</button>
       </div>
     </article>`;
@@ -144,6 +219,12 @@
   function setWorkflowFields(card) {
     const scheduledInput = card.querySelector("[data-scheduled-for]");
     if (scheduledInput?.type === "datetime-local") scheduledInput.min = localDateTimeValue(new Date(Date.now() + 60000).toISOString());
+    const gameInput = card.querySelector("[data-game-change]");
+    const gameList = card.querySelector("[data-game-list]");
+    if (gameInput && gameList) gameInput.addEventListener("input", () => {
+      gameList.innerHTML = catalogResults(gameInput.value).slice(0, 20)
+        .map((game) => `<option value="${escapeHtml(catalogLabel(game))}"></option>`).join("");
+    });
   }
 
   async function loadLatestVod(card, automatic = false) {
@@ -236,10 +317,12 @@
       const note = card.querySelector("[data-staff-note]").value.trim();
       const mode = resolveButton ? resolveButton.dataset.resolveChange : "direct";
       if (mode === "deny" && !note) { setNotice("Add a reason before denying the viewer's game change.", true); card.querySelector("[data-staff-note]").focus(); return; }
+      const selectedGame = mode === "direct" ? resolveCatalogGame(card.querySelector("[data-game-change]").value) : null;
+      if (mode === "direct" && !selectedGame) { setNotice("Choose one game from the search suggestions. Add the system or catalog number if more than one version appears.", true); card.querySelector("[data-game-change]").focus(); return; }
       const button = changeButton || resolveButton;
       button.disabled = true;
       try {
-        render(await api("change_game", { id: card.dataset.requestId, mode, gameId: card.querySelector("[data-game-change]").value, note }));
+        render(await api("change_game", { id: card.dataset.requestId, mode, gameId: selectedGame?.id || "", note }));
         setNotice(mode === "deny" ? "Viewer game change denied and added to the request history." : "Game changed in the website, Discord record, and request history.");
       } catch (error) { setNotice(error.message, true); button.disabled = false; }
       return;
