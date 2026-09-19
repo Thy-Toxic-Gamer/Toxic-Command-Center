@@ -1,5 +1,6 @@
 import nacl from "tweetnacl";
 import { APPLICATION_ID, APPEALS_CHANNEL_ID, DURATION_SECONDS, POLLS_CHANNEL_ID, POLLS_URL, T_COMMAND } from "./commands.ts";
+import { COMMUNITY_INFO_CLEANUP_TITLES, COMMUNITY_INFO_MESSAGES } from "./community-info.ts";
 import { APPEAL_URL, STAFF_GUIDE_MESSAGES } from "./guide.ts";
 
 declare const EdgeRuntime: { waitUntil(promise: Promise<unknown>): void };
@@ -22,6 +23,25 @@ const PERMISSIONS = {
   MANAGE_MESSAGES: 1n << 13n,
   MODERATE_MEMBERS: 1n << 40n,
 };
+
+type TicketType = "general" | "report" | "staff" | "suggestion";
+
+const TICKET_LABELS: Record<TicketType, string> = {
+  general: "General Support",
+  report: "Report a User",
+  staff: "Staff Inquiry",
+  suggestion: "Suggestion",
+};
+
+const TICKET_COLORS: Record<TicketType, number> = {
+  general: 0xb5ff18,
+  report: 0xff3b93,
+  staff: 0x48e69b,
+  suggestion: 0x7d8cff,
+};
+
+const CHANNEL_ALLOW = (1n << 6n) | (1n << 10n) | (1n << 11n) | (1n << 14n) | (1n << 15n) | (1n << 16n);
+const STAFF_CHANNEL_ALLOW = CHANNEL_ALLOW | (1n << 13n);
 
 function adminKey(): string {
   if (SECRET_KEYS) {
@@ -258,8 +278,547 @@ async function guildConfig(guildId: string): Promise<AnyRecord | null> {
   return rows[0] ?? null;
 }
 
+async function ticketConfig(guildId: string): Promise<AnyRecord | null> {
+  const rows = await dbSelect("discord_ticket_config", {
+    select: "*",
+    guild_id: `eq.${guildId}`,
+    active: "eq.true",
+    limit: "1",
+  });
+  return rows[0] ?? null;
+}
+
+function ticketTypeFromCustomId(customId: string): TicketType | null {
+  const value = customId.toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_+|_+$/g, "");
+  if (["ticket_general", "ticket_general_support", "general_support", "general", "support"].includes(value)) return "general";
+  if (["ticket_report", "ticket_report_user", "report_user", "report_a_user", "report"].includes(value)) return "report";
+  if (["ticket_staff", "ticket_staff_inquiry", "ticket_staff_inquiries", "staff_inquiry", "staff_inquiries", "staff"].includes(value)) return "staff";
+  if (["ticket_suggestion", "ticket_suggestions", "suggestion", "suggestions"].includes(value)) return "suggestion";
+  if (!value.includes("ticket")) return null;
+  if (value.includes("report")) return "report";
+  if (value.includes("staff")) return "staff";
+  if (value.includes("suggest")) return "suggestion";
+  if (value.includes("general") || value.includes("support")) return "general";
+  return null;
+}
+
+function ticketCategory(config: AnyRecord, type: TicketType): string {
+  return String(config[`${type}_category_id`] ?? "");
+}
+
+function channelSlug(value: string): string {
+  return value.toLowerCase().normalize("NFKD").replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 28) || "member";
+}
+
+async function insertTicketEvent(ticketId: string, eventType: string, actor: AnyRecord | null, details: Json = {}): Promise<void> {
+  await dbInsert("discord_ticket_events", {
+    ticket_id: ticketId,
+    event_type: eventType,
+    actor_user_id: actor?.id ?? null,
+    actor_name: actor ? displayName(actor) : null,
+    details,
+  });
+}
+
+function ticketStatusEmbed(ticket: AnyRecord, state: "open" | "closed", transcriptCount = 0): AnyRecord {
+  const label = TICKET_LABELS[ticket.ticket_type as TicketType] ?? "Ticket";
+  const fields: AnyRecord[] = [
+    { name: "Member", value: `${ticket.requester_display_name ?? ticket.requester_username}\n\`${ticket.requester_user_id}\``, inline: true },
+    { name: "Type", value: label, inline: true },
+    { name: "Status", value: state === "open" ? "Open" : "Closed and archived", inline: true },
+  ];
+  if (ticket.assigned_to_name) fields.push({ name: "Claimed by", value: String(ticket.assigned_to_name), inline: true });
+  if (state === "open" && ticket.channel_id) fields.push({ name: "Private channel", value: `<#${ticket.channel_id}>`, inline: false });
+  if (state === "closed") fields.push({ name: "Saved messages", value: String(transcriptCount), inline: true });
+  return {
+    color: state === "open" ? TICKET_COLORS[ticket.ticket_type as TicketType] : 0x768078,
+    title: `${ticket.ticket_code} • ${label}`,
+    fields,
+    footer: { text: state === "open" ? "ThyToxicBot • Private ticket active" : "Toxic Command Center • six-month retention" },
+    timestamp: state === "open" ? ticket.opened_at : ticket.closed_at,
+  };
+}
+
+function ticketControlEmbed(ticket: AnyRecord): AnyRecord {
+  const type = ticket.ticket_type as TicketType;
+  const fields: AnyRecord[] = [
+    { name: "Opened by", value: ticket.requester_display_name ?? ticket.requester_username, inline: true },
+    { name: "Ticket type", value: TICKET_LABELS[type], inline: true },
+    { name: "Assigned staff", value: ticket.assigned_to_name ?? "Unclaimed", inline: true },
+  ];
+  return {
+    color: TICKET_COLORS[type],
+    title: `${ticket.ticket_code} • ${TICKET_LABELS[type]}`,
+    description: "Explain what you need and include any useful dates, screenshots, message links, or other evidence. Only you and authorized staff can view this channel.",
+    fields,
+    footer: { text: "Closing archives the conversation to the protected website record and removes this Discord channel." },
+    timestamp: ticket.opened_at,
+  };
+}
+
+function ticketControlComponents(ticket: AnyRecord): AnyRecord[] {
+  const claimed = Boolean(ticket.assigned_to_user_id);
+  return [{
+    type: 1,
+    components: [
+      {
+        type: 2,
+        style: claimed ? 2 : 3,
+        label: claimed ? `Claimed by ${String(ticket.assigned_to_name ?? "Staff").slice(0, 62)}` : "Claim Ticket",
+        custom_id: `ticket_claim:${ticket.id}`,
+        disabled: claimed,
+      },
+      { type: 2, style: 4, label: "Close Ticket", custom_id: `ticket_close:${ticket.id}` },
+    ],
+  }];
+}
+
+const TICKET_TIME_ZONE = "America/New_York";
+
+function ticketDay(value: string | null | undefined): string {
+  if (!value) return "";
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: TICKET_TIME_ZONE,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(new Date(value));
+}
+
+function ticketStatusDashboardEmbed(tickets: AnyRecord[]): AnyRecord {
+  const today = ticketDay(new Date().toISOString());
+  const active = tickets.filter((ticket) => ["creating", "open", "closing"].includes(String(ticket.status)));
+  const waiting = active.filter((ticket) => !ticket.assigned_to_user_id).length;
+  const claimed = active.filter((ticket) => Boolean(ticket.assigned_to_user_id)).length;
+  const openedToday = tickets.filter((ticket) => ticketDay(ticket.opened_at) === today);
+  const closedToday = tickets.filter((ticket) => ticketDay(ticket.closed_at) === today);
+  const replySeconds = openedToday
+    .filter((ticket) => ticket.opened_at && ticket.claimed_at)
+    .map((ticket) => Math.max(0, Math.round((new Date(ticket.claimed_at).getTime() - new Date(ticket.opened_at).getTime()) / 1000)))
+    .filter(Number.isFinite);
+  const averageReply = replySeconds.length
+    ? `${Math.round(replySeconds.reduce((total, seconds) => total + seconds, 0) / replySeconds.length)} sec`
+    : "Not available yet";
+  const locationLines = (Object.keys(TICKET_LABELS) as TicketType[]).map((type) => {
+    const open = active.filter((ticket) => ticket.ticket_type === type).length;
+    const opened = openedToday.filter((ticket) => ticket.ticket_type === type).length;
+    const icon = type === "general" ? "📬" : type === "report" ? "🚨" : type === "staff" ? "🛡️" : "💡";
+    return `${icon} **${TICKET_LABELS[type]}**\nOpen: ${open} · Opened today: ${opened}`;
+  });
+  return {
+    color: 0x48e69b,
+    title: "📌 Support Status",
+    description: "A live look at how the ThyToxicBot support queue is doing.",
+    fields: [
+      {
+        name: "Current queue",
+        value: `📌 ${active.length} open right now · ${waiting} waiting for staff\n🛡️ ${claimed} currently claimed`,
+        inline: false,
+      },
+      {
+        name: "Today",
+        value: `↗️ ${openedToday.length} opened · ✅ ${closedToday.length} closed\nAverage first reply: ${averageReply}`,
+        inline: false,
+      },
+      { name: "Ticket locations", value: locationLines.join("\n\n"), inline: false },
+    ],
+    footer: { text: "ThyToxicBot • Live Ticket Status • Updates automatically" },
+    timestamp: new Date().toISOString(),
+  };
+}
+
+async function refreshTicketStatusDashboard(config: AnyRecord): Promise<string | null> {
+  try {
+    const [tickets, messages] = await Promise.all([
+      dbSelect("discord_tickets", {
+        select: "ticket_type,status,assigned_to_user_id,opened_at,closed_at,claimed_at",
+        guild_id: `eq.${config.guild_id}`,
+        order: "created_at.desc",
+        limit: "1000",
+      }),
+      discord(`/channels/${config.ticket_status_channel_id}/messages?limit=100`),
+    ]);
+    const dashboard = Array.isArray(messages) ? messages.find((message: AnyRecord) =>
+      String(message.author?.id ?? "") === APPLICATION_ID &&
+      String(message.embeds?.[0]?.title ?? "").includes("Support Status")) : null;
+    const staleTicketMessages = Array.isArray(messages) ? messages.filter((message: AnyRecord) =>
+      String(message.author?.id ?? "") === APPLICATION_ID &&
+      String(message.embeds?.[0]?.title ?? "").startsWith("TTG-TKT-")) : [];
+    await Promise.all(staleTicketMessages.map((message: AnyRecord) =>
+      discord(`/channels/${config.ticket_status_channel_id}/messages/${message.id}`, { method: "DELETE" })
+        .catch((error) => console.warn("stale ticket status cleanup failed", safeMessage(error)))));
+    const payload = { embeds: [ticketStatusDashboardEmbed(tickets)], allowed_mentions: { parse: [] } };
+    const message = dashboard
+      ? await discord(`/channels/${config.ticket_status_channel_id}/messages/${dashboard.id}`, {
+        method: "PATCH",
+        body: JSON.stringify(payload),
+      })
+      : await discord(`/channels/${config.ticket_status_channel_id}/messages`, {
+        method: "POST",
+        body: JSON.stringify(payload),
+      });
+    return String(message.id);
+  } catch (error) {
+    console.warn("ticket status dashboard refresh failed", safeMessage(error));
+    return null;
+  }
+}
+
+async function refreshTicketStatusDashboardForGuild(guildId: string): Promise<string | null> {
+  const config = await ticketConfig(guildId);
+  if (!config) return null;
+  return await refreshTicketStatusDashboard(config);
+}
+
+function ticketLogPayload(ticket: AnyRecord, transcriptCount: number): Json {
+  return {
+    content: "Archived record: https://thy-toxic-gamer.github.io/Toxic-Command-Center/tickets/staff.html",
+    embeds: [ticketStatusEmbed(ticket, "closed", transcriptCount)],
+    allowed_mentions: { parse: [] },
+  };
+}
+
+async function ensureBotChannelAccess(channelId: string): Promise<void> {
+  await discord(`/channels/${channelId}/permissions/${APPLICATION_ID}`, {
+    method: "PUT",
+    body: JSON.stringify({
+      type: 1,
+      allow: String(STAFF_CHANNEL_ALLOW),
+      deny: "0",
+    }),
+  });
+}
+
+async function postTicketLog(config: AnyRecord, ticket: AnyRecord, transcriptCount: number): Promise<AnyRecord> {
+  const send = () => discord(`/channels/${config.ticket_log_channel_id}/messages`, {
+    method: "POST",
+    body: JSON.stringify(ticketLogPayload(ticket, transcriptCount)),
+  });
+  try {
+    return await send();
+  } catch (error) {
+    if (!(error instanceof DiscordError) || error.status !== 403) throw error;
+    await ensureBotChannelAccess(String(config.ticket_log_channel_id));
+    return await send();
+  }
+}
+
+async function repairMissingTicketLogs(guildId: string): Promise<number> {
+  const config = await ticketConfig(guildId);
+  if (!config?.ticket_log_channel_id) return 0;
+  const tickets = await dbSelect("discord_tickets", {
+    select: "*",
+    guild_id: `eq.${guildId}`,
+    status: "eq.closed",
+    log_message_id: "is.null",
+    order: "closed_at.asc",
+    limit: "25",
+  });
+  let repaired = 0;
+  for (const ticket of tickets) {
+    try {
+      const count = Array.isArray(ticket.transcript) ? ticket.transcript.length : 0;
+      const log = await postTicketLog(config, ticket, count);
+      await dbUpdate("discord_tickets", `id=eq.${ticket.id}`, {
+        log_message_id: String(log.id),
+        deletion_error: null,
+        updated_at: new Date().toISOString(),
+      });
+      repaired += 1;
+    } catch (error) {
+      console.warn("ticket log repair failed", ticket.ticket_code, safeMessage(error));
+      await dbUpdate("discord_tickets", `id=eq.${ticket.id}`, {
+        deletion_error: `Ticket log delivery failed: ${safeMessage(error)}`.slice(0, 1000),
+        updated_at: new Date().toISOString(),
+      });
+      break;
+    }
+  }
+  return repaired;
+}
+
+async function openTicket(interaction: AnyRecord, type: TicketType): Promise<Json> {
+  const guildId = String(interaction.guild_id ?? "");
+  if (!guildId) return ephemeral("Tickets can only be opened inside the server.");
+  const [config, guild] = await Promise.all([ticketConfig(guildId), guildConfig(guildId)]);
+  if (!config || !guild) return ephemeral("The Ticket Center is not configured for this server.");
+  if (String(interaction.channel_id) !== String(config.ticket_center_channel_id)) {
+    return ephemeral(`Open tickets from <#${config.ticket_center_channel_id}>.`);
+  }
+  const user = appUser(interaction);
+  const existing = (await dbSelect("discord_tickets", {
+    select: "id,ticket_code,channel_id,status",
+    guild_id: `eq.${guildId}`,
+    requester_user_id: `eq.${user.id}`,
+    status: "in.(creating,open,closing)",
+    limit: "1",
+  }))[0];
+  if (existing?.channel_id) return ephemeral(`You already have an active ticket: <#${existing.channel_id}> (${existing.ticket_code}).`);
+  if (existing) return ephemeral(`Your ticket ${existing.ticket_code} is still being prepared. Please wait a moment.`);
+
+  const ticket = await dbInsert("discord_tickets", {
+    guild_id: guildId,
+    ticket_type: type,
+    requester_user_id: String(user.id),
+    requester_username: String(user.username ?? user.id),
+    requester_display_name: displayName(user, interaction.member),
+    status: "creating",
+  });
+  await insertTicketEvent(ticket.id, "created", user, { ticket_type: type });
+
+  const categoryId = ticketCategory(config, type);
+  if (!categoryId) throw new Error(`The ${TICKET_LABELS[type]} category is not configured.`);
+  const staffRoleIds = [...new Set([
+    ...(Array.isArray(guild.moderator_role_ids) ? guild.moderator_role_ids : []),
+    ...(Array.isArray(guild.administrator_role_ids) ? guild.administrator_role_ids : []),
+  ].map(String))];
+  const overwrites = [
+    { id: guildId, type: 0, deny: String(1n << 10n) },
+    { id: String(user.id), type: 1, allow: String(CHANNEL_ALLOW) },
+    { id: APPLICATION_ID, type: 1, allow: String(STAFF_CHANNEL_ALLOW) },
+    ...staffRoleIds.map((id) => ({ id, type: 0, allow: String(STAFF_CHANNEL_ALLOW) })),
+  ];
+  let channel: AnyRecord | null = null;
+  try {
+    channel = await discordAction(`/guilds/${guildId}/channels`, "POST", {
+      name: `${type}-${channelSlug(displayName(user, interaction.member))}-${String(ticket.ticket_number).padStart(6, "0")}`.slice(0, 100),
+      type: 0,
+      parent_id: categoryId,
+      topic: `${ticket.ticket_code} • ${TICKET_LABELS[type]} • requester ${user.id}`.slice(0, 1024),
+      permission_overwrites: overwrites,
+    }, ticket.ticket_code, `Private ${TICKET_LABELS[type]} ticket opened by ${user.username ?? user.id}`);
+    const openedAt = new Date().toISOString();
+    const opened = await dbUpdate("discord_tickets", `id=eq.${ticket.id}`, {
+      channel_id: channel.id,
+      status: "open",
+      opened_at: openedAt,
+      updated_at: openedAt,
+    });
+    const controlMessage = await discord(`/channels/${channel.id}/messages`, {
+      method: "POST",
+      body: JSON.stringify({
+        content: `<@${user.id}> your private ticket is ready. ${staffRoleIds.map((id) => `<@&${id}>`).join(" ")}`.trim(),
+        allowed_mentions: { users: [String(user.id)], roles: staffRoleIds, parse: [] },
+        embeds: [ticketControlEmbed(opened)],
+        components: ticketControlComponents(opened),
+      }),
+    });
+    opened.control_message_id = String(controlMessage.id);
+    await dbUpdate("discord_tickets", `id=eq.${ticket.id}`, { control_message_id: controlMessage.id });
+    await insertTicketEvent(ticket.id, "opened", user, { channel_id: channel.id, category_id: categoryId });
+    await refreshTicketStatusDashboard(config);
+    return ephemeral(`Your private ticket is ready: <#${channel.id}>`);
+  } catch (error) {
+    if (channel?.id) await discord(`/channels/${channel.id}`, { method: "DELETE" }).catch(() => null);
+    await dbUpdate("discord_tickets", `id=eq.${ticket.id}`, {
+      status: "failed",
+      deletion_error: safeMessage(error).slice(0, 1000),
+      updated_at: new Date().toISOString(),
+    });
+    await insertTicketEvent(ticket.id, "failed", user, { error: safeMessage(error) });
+    throw error;
+  }
+}
+
+async function claimTicket(interaction: AnyRecord, ticketId: string): Promise<Json> {
+  const guildId = String(interaction.guild_id ?? "");
+  const [guild, config] = await Promise.all([guildConfig(guildId), ticketConfig(guildId)]);
+  if (!guild || !config) return ephemeral("The Ticket Center is not configured.");
+  if (!isStaff(interaction, guild)) return ephemeral("Only an authorized Moderator, Administrator, or the server owner can claim tickets.");
+  const ticket = (await dbSelect("discord_tickets", { select: "*", id: `eq.${ticketId}`, guild_id: `eq.${guildId}`, limit: "1" }))[0];
+  if (!ticket) return ephemeral("That ticket record was not found.");
+  if (ticket.status !== "open") return ephemeral("Only an open ticket can be claimed.");
+  if (String(ticket.channel_id) !== String(interaction.channel_id)) return ephemeral("Use the Claim Ticket button inside the ticket channel.");
+  const actor = appUser(interaction);
+  if (ticket.assigned_to_user_id) {
+    return ephemeral(String(ticket.assigned_to_user_id) === String(actor.id)
+      ? `You already claimed ${ticket.ticket_code}.`
+      : `${ticket.ticket_code} is already claimed by ${ticket.assigned_to_name ?? "another staff member"}.`);
+  }
+  const claimedAt = new Date().toISOString();
+  const actorName = displayName(actor, interaction.member);
+  const claimed = await dbUpdate("discord_tickets", `id=eq.${ticket.id}&status=eq.open&assigned_to_user_id=is.null`, {
+    assigned_to_user_id: String(actor.id),
+    assigned_to_name: actorName,
+    claimed_at: claimedAt,
+    control_message_id: ticket.control_message_id ?? interaction.message?.id ?? null,
+    updated_at: claimedAt,
+  });
+  if (!claimed) {
+    const latest = (await dbSelect("discord_tickets", { select: "ticket_code,assigned_to_name", id: `eq.${ticket.id}`, limit: "1" }))[0];
+    return ephemeral(`${latest?.ticket_code ?? ticket.ticket_code} was just claimed by ${latest?.assigned_to_name ?? "another staff member"}.`);
+  }
+  await insertTicketEvent(ticket.id, "claimed", actor, { assigned_to_name: actorName });
+  const controlMessageId = String(claimed.control_message_id ?? interaction.message?.id ?? "");
+  if (controlMessageId) {
+    await discord(`/channels/${ticket.channel_id}/messages/${controlMessageId}`, {
+      method: "PATCH",
+      body: JSON.stringify({
+        content: interaction.message?.content ?? `<@${ticket.requester_user_id}> your private ticket is ready.`,
+        embeds: [ticketControlEmbed(claimed)],
+        components: ticketControlComponents(claimed),
+        allowed_mentions: { parse: [] },
+      }),
+    });
+  }
+  await refreshTicketStatusDashboard(config);
+  await discord(`/channels/${ticket.channel_id}/messages`, {
+    method: "POST",
+    body: JSON.stringify({ content: `<@${actor.id}> claimed this ticket.`, allowed_mentions: { users: [String(actor.id)], parse: [] } }),
+  });
+  return ephemeral(`You claimed ${ticket.ticket_code}.`);
+}
+
+async function channelTranscript(channelId: string): Promise<AnyRecord[]> {
+  const messages: AnyRecord[] = [];
+  let before = "";
+  for (let page = 0; page < 10; page += 1) {
+    const query = new URLSearchParams({ limit: "100" });
+    if (before) query.set("before", before);
+    const batch = await discord(`/channels/${channelId}/messages?${query.toString()}`);
+    if (!Array.isArray(batch) || batch.length === 0) break;
+    for (const message of batch) {
+      messages.push({
+        id: String(message.id),
+        author: {
+          id: String(message.author?.id ?? ""),
+          username: String(message.author?.username ?? "Unknown"),
+          display_name: String(message.member?.nick ?? message.author?.global_name ?? message.author?.username ?? "Unknown"),
+          bot: Boolean(message.author?.bot),
+        },
+        content: String(message.content ?? ""),
+        attachments: (message.attachments ?? []).map((item: AnyRecord) => ({
+          id: String(item.id), filename: String(item.filename ?? "Attachment"), url: String(item.url ?? ""),
+          content_type: item.content_type ?? null, size: item.size ?? null,
+        })),
+        embeds: (message.embeds ?? []).map((item: AnyRecord) => ({
+          title: item.title ?? null, description: item.description ?? null, url: item.url ?? null,
+        })),
+        created_at: message.timestamp,
+        edited_at: message.edited_timestamp ?? null,
+      });
+    }
+    if (batch.length < 100) break;
+    before = String(batch[batch.length - 1].id);
+  }
+  return messages.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+}
+
+async function closeTicket(interaction: AnyRecord, ticketId: string): Promise<{ ticket: AnyRecord; config: AnyRecord }> {
+  const guildId = String(interaction.guild_id ?? "");
+  const [guild, config] = await Promise.all([guildConfig(guildId), ticketConfig(guildId)]);
+  if (!guild || !config) throw new Error("The Ticket Center is not configured.");
+  const ticket = (await dbSelect("discord_tickets", { select: "*", id: `eq.${ticketId}`, guild_id: `eq.${guildId}`, limit: "1" }))[0];
+  if (!ticket) throw new Error("That ticket record was not found.");
+  const actor = appUser(interaction);
+  if (String(ticket.requester_user_id) !== String(actor.id) && !isStaff(interaction, guild)) {
+    throw new Error("Only the ticket requester or authorized staff can close this ticket.");
+  }
+  if (ticket.status !== "open") throw new Error("This ticket is already closed or unavailable.");
+  if (String(ticket.channel_id) !== String(interaction.channel_id)) throw new Error("Use the Close Ticket button inside the ticket channel.");
+
+  await dbUpdate("discord_tickets", `id=eq.${ticket.id}`, { status: "closing", updated_at: new Date().toISOString() });
+  await insertTicketEvent(ticket.id, "close_requested", actor);
+  let transcript: AnyRecord[];
+  try {
+    transcript = await channelTranscript(ticket.channel_id);
+  } catch (error) {
+    await dbUpdate("discord_tickets", `id=eq.${ticket.id}`, { status: "open", deletion_error: safeMessage(error), updated_at: new Date().toISOString() });
+    throw new Error(`The ticket could not be archived, so the Discord channel was kept open. ${safeMessage(error)}`);
+  }
+
+  const closedAt = new Date().toISOString();
+  const purge = new Date();
+  purge.setUTCMonth(purge.getUTCMonth() + Number(config.retention_months ?? 6));
+  const closedPreview = {
+    ...ticket,
+    status: "closed",
+    transcript,
+    close_reason: "Closed from the Discord ticket channel.",
+    closed_by_user_id: String(actor.id),
+    closed_by_name: displayName(actor, interaction.member),
+    closed_at: closedAt,
+    purge_after: purge.toISOString(),
+    updated_at: closedAt,
+  };
+  let log: AnyRecord;
+  try {
+    log = await postTicketLog(config, closedPreview, transcript.length);
+  } catch (error) {
+    const message = `Ticket log delivery failed: ${safeMessage(error)}`.slice(0, 1000);
+    await dbUpdate("discord_tickets", `id=eq.${ticket.id}`, {
+      status: "open",
+      deletion_error: message,
+      updated_at: new Date().toISOString(),
+    });
+    await insertTicketEvent(ticket.id, "failed", actor, { stage: "ticket_log", error: safeMessage(error) });
+    throw new Error("I couldn't post the completed ticket to ticket-logs, so this private channel was kept open. Check ThyToxicBot's channel permissions and try again.");
+  }
+
+  const closed = await dbUpdate("discord_tickets", `id=eq.${ticket.id}`, {
+    status: "closed",
+    transcript,
+    close_reason: closedPreview.close_reason,
+    closed_by_user_id: closedPreview.closed_by_user_id,
+    closed_by_name: closedPreview.closed_by_name,
+    closed_at: closedAt,
+    purge_after: purge.toISOString(),
+    log_message_id: String(log.id),
+    deletion_error: null,
+    updated_at: closedAt,
+  });
+  await insertTicketEvent(ticket.id, "closed", actor, { message_count: transcript.length, log_message_id: String(log.id) });
+
+  await refreshTicketStatusDashboard(config);
+  return { ticket: closed, config };
+}
+
+async function closeTicketAndDelete(interaction: AnyRecord, ticketId: string): Promise<void> {
+  try {
+    const { ticket } = await closeTicket(interaction, ticketId);
+    await editOriginal(interaction, ephemeral(`${ticket.ticket_code} was archived to the Ticket Center. This Discord channel is now closing.`));
+    try {
+      await discordAction(`/channels/${ticket.channel_id}`, "DELETE", undefined, ticket.ticket_code, `Ticket closed by ${displayName(appUser(interaction), interaction.member)}`);
+      await dbUpdate("discord_tickets", `id=eq.${ticket.id}`, { channel_deleted_at: new Date().toISOString(), deletion_error: null });
+      await insertTicketEvent(ticket.id, "channel_deleted", appUser(interaction), { channel_id: ticket.channel_id });
+    } catch (error) {
+      await dbUpdate("discord_tickets", `id=eq.${ticket.id}`, { deletion_error: safeMessage(error).slice(0, 1000) });
+      console.error("ticket channel deletion failed", safeMessage(error));
+    }
+  } catch (error) {
+    console.error("ticket close failed", safeMessage(error));
+    await editOriginal(interaction, ephemeral(`I couldn't close this ticket: ${safeMessage(error)}`));
+  }
+}
+
 async function insertEvent(caseId: string, data: Json): Promise<void> {
   await dbInsert("discord_moderation_events", { case_id: caseId, ...data });
+}
+
+function guideMessageMatches(message: AnyRecord, payload: AnyRecord): boolean {
+  const actual = (message.embeds ?? []).map((embed: AnyRecord) => ({
+    color: embed.color ?? null,
+    title: embed.title ?? null,
+    description: embed.description ?? null,
+    fields: (embed.fields ?? []).map((field: AnyRecord) => ({
+      name: field.name ?? null,
+      value: field.value ?? null,
+      inline: Boolean(field.inline),
+    })),
+    footer: embed.footer?.text ? { text: embed.footer.text } : null,
+  }));
+  const expected = (payload.embeds ?? []).map((embed: AnyRecord) => ({
+    color: embed.color ?? null,
+    title: embed.title ?? null,
+    description: embed.description ?? null,
+    fields: (embed.fields ?? []).map((field: AnyRecord) => ({
+      name: field.name ?? null,
+      value: field.value ?? null,
+      inline: Boolean(field.inline),
+    })),
+    footer: embed.footer?.text ? { text: embed.footer.text } : null,
+  }));
+  return JSON.stringify(actual) === JSON.stringify(expected);
 }
 
 async function publishGuide(config: AnyRecord): Promise<string> {
@@ -275,12 +834,18 @@ async function publishGuide(config: AnyRecord): Promise<string> {
     let message: AnyRecord | null = null;
     if (existingId) {
       try {
-        message = await discord(`/channels/${channelId}/messages/${existingId}`, {
-          method: "PATCH",
-          body: JSON.stringify(payload),
-        });
+        const current = await discord(`/channels/${channelId}/messages/${existingId}`);
+        if (guideMessageMatches(current, payload)) {
+          message = current;
+        } else {
+          message = await discord(`/channels/${channelId}/messages/${existingId}`, {
+            method: "PATCH",
+            body: JSON.stringify(payload),
+          });
+        }
       } catch (error) {
-        if (!(error instanceof DiscordError) || error.status !== 404) throw error;
+        const replaceInstead = error instanceof DiscordError && (error.status === 404 || error.status === 429);
+        if (!replaceInstead) throw error;
       }
     }
     if (!message) {
@@ -288,6 +853,13 @@ async function publishGuide(config: AnyRecord): Promise<string> {
         method: "POST",
         body: JSON.stringify(payload),
       });
+      if (existingId && existingId !== String(message.id)) {
+        try {
+          await discord(`/channels/${channelId}/messages/${existingId}`, { method: "DELETE" });
+        } catch (error) {
+          console.warn("old guide cleanup skipped", safeMessage(error));
+        }
+      }
     }
     messageIds.push(String(message.id));
     try {
@@ -304,7 +876,7 @@ async function publishGuide(config: AnyRecord): Promise<string> {
   return messageIds[0];
 }
 
-async function bootstrap(): Promise<void> {
+async function bootstrap(): Promise<number> {
   if (!BOT_TOKEN) throw new Error("DISCORD_BOT_TOKEN is missing.");
   const channel = await discord(`/channels/${APPEALS_CHANNEL_ID}`);
   if (!channel.guild_id) throw new Error("The configured appeals channel is not a guild channel.");
@@ -333,7 +905,10 @@ async function bootstrap(): Promise<void> {
     body: JSON.stringify([T_COMMAND]),
   });
   await publishGuide(config);
-  console.log("ThyToxicBot bootstrap complete for guild", channel.guild_id);
+  const repairedLogs = await repairMissingTicketLogs(String(channel.guild_id));
+  await refreshTicketStatusDashboardForGuild(String(channel.guild_id));
+  console.log("ThyToxicBot bootstrap complete for guild", channel.guild_id, "repaired ticket logs", repairedLogs);
+  return repairedLogs;
 }
 
 function resolvedUser(interaction: AnyRecord, userId: string): { user: AnyRecord; member: AnyRecord } {
@@ -1094,8 +1669,61 @@ async function pollClearCommand(interaction: AnyRecord, config: AnyRecord, value
 
 async function guideCommand(interaction: AnyRecord, config: AnyRecord): Promise<Json> {
   if (!isAdministrator(interaction, config)) return ephemeral("Only an authorized administrator can refresh the staff guide.");
-  await bootstrap();
-  return ephemeral("ThyToxicBot commands and the pinned Appeals & Moderation Review guide are updated.");
+  const repairedLogs = await bootstrap();
+  const repairedMessage = repairedLogs === 1
+    ? " One missing completed-ticket log was restored."
+    : repairedLogs > 1 ? ` ${repairedLogs} missing completed-ticket logs were restored.` : "";
+  return ephemeral(`ThyToxicBot commands and the pinned Appeals & Moderation Review guide are updated.${repairedMessage}`);
+}
+
+async function communityInfoCommand(interaction: AnyRecord, config: AnyRecord): Promise<Json> {
+  if (!isOwner(interaction, config)) return ephemeral("Only the bot owner can refresh the community information panels.");
+  const channelId = String(interaction.channel_id ?? "");
+  if (!channelId) return ephemeral("Run this command inside the channel that should receive the information panels.");
+
+  let currentMessages: AnyRecord[] = [];
+  let cleanupSkipped = false;
+  try {
+    const messages = await discord(`/channels/${channelId}/messages?limit=100`);
+    currentMessages = Array.isArray(messages) ? messages : [];
+  } catch (error) {
+    if (!(error instanceof DiscordError) || error.status !== 403) throw error;
+    cleanupSkipped = true;
+    console.warn("community information history unavailable", safeMessage(error));
+  }
+  const oldPanels = Array.isArray(currentMessages)
+    ? currentMessages.filter((message: AnyRecord) =>
+      String(message.author?.id ?? "") === APPLICATION_ID &&
+      (message.embeds ?? []).some((embed: AnyRecord) => COMMUNITY_INFO_CLEANUP_TITLES.includes(String(embed.title ?? "") as any))
+    )
+    : [];
+
+  for (const message of oldPanels) {
+    try {
+      await discord(`/channels/${channelId}/messages/${message.id}`, { method: "DELETE" });
+    } catch (error) {
+      if (!(error instanceof DiscordError) || error.status !== 403) throw error;
+      cleanupSkipped = true;
+      console.warn("old community information cleanup skipped", safeMessage(error));
+    }
+  }
+  try {
+    for (const payload of COMMUNITY_INFO_MESSAGES) {
+      await discord(`/channels/${channelId}/messages`, {
+        method: "POST",
+        body: JSON.stringify(payload),
+      });
+    }
+  } catch (error) {
+    if (error instanceof DiscordError && error.status === 403) {
+      return ephemeral(`I could not post in <#${channelId}>. Give the ThyToxicBot role **View Channel**, **Send Messages**, and **Embed Links** in that channel, then run \`/t communityinfo\` again.`);
+    }
+    throw error;
+  }
+  const cleanupNote = cleanupSkipped
+    ? " Discord did not allow me to remove the older panels, so they may need to be deleted manually."
+    : "";
+  return ephemeral(`The ${COMMUNITY_INFO_MESSAGES.length} updated Community information panels were posted in <#${channelId}>.${cleanupNote}`);
 }
 
 async function handleCommand(interaction: AnyRecord): Promise<Json> {
@@ -1119,6 +1747,7 @@ async function handleCommand(interaction: AnyRecord): Promise<Json> {
   if (subcommand === "pollcreate") return await pollCreateCommand(interaction, config, values);
   if (subcommand === "pollclose") return await pollCloseCommand(interaction, config, values);
   if (subcommand === "pollclear") return await pollClearCommand(interaction, config, values);
+  if (subcommand === "communityinfo") return await communityInfoCommand(interaction, config);
   if (subcommand === "guide") return await guideCommand(interaction, config);
   return ephemeral("Unknown ThyToxicBot command.");
 }
@@ -1198,6 +1827,43 @@ Deno.serve(async (req: Request) => {
     return json({ type: 1 });
   }
   if (interaction.type === 4) return await autocomplete(interaction);
+  const componentId = String(interaction.data?.custom_id ?? "");
+  if (interaction.type === 3 && componentId.startsWith("ticket_claim:")) {
+    const ticketId = componentId.slice("ticket_claim:".length);
+    EdgeRuntime.waitUntil(runDeferred(interaction, () => claimTicket(interaction, ticketId)));
+    return json({ type: 5, data: { flags: 64 } });
+  }
+  if (interaction.type === 3 && componentId.startsWith("ticket_close_confirm:")) {
+    const ticketId = componentId.slice("ticket_close_confirm:".length);
+    EdgeRuntime.waitUntil(closeTicketAndDelete(interaction, ticketId));
+    return json({ type: 5, data: { flags: 64 } });
+  }
+  if (interaction.type === 3 && componentId.startsWith("ticket_close_cancel:")) {
+    return json({ type: 7, data: { content: "Ticket close cancelled. The ticket remains open.", components: [], allowed_mentions: { parse: [] } } });
+  }
+  if (interaction.type === 3 && componentId.startsWith("ticket_close:")) {
+    const ticketId = componentId.slice("ticket_close:".length);
+    return json({
+      type: 4,
+      data: {
+        ...ephemeral("Close this ticket? Its conversation will be saved to the protected website record, then this Discord channel will be deleted."),
+        components: [{
+          type: 1,
+          components: [
+            { type: 2, style: 4, label: "Confirm Close", custom_id: `ticket_close_confirm:${ticketId}` },
+            { type: 2, style: 2, label: "Keep Open", custom_id: `ticket_close_cancel:${ticketId}` },
+          ],
+        }],
+      },
+    });
+  }
+  if (interaction.type === 3) {
+    const ticketType = ticketTypeFromCustomId(componentId);
+    if (ticketType) {
+      EdgeRuntime.waitUntil(runDeferred(interaction, () => openTicket(interaction, ticketType)));
+      return json({ type: 5, data: { flags: 64 } });
+    }
+  }
   if (interaction.type === 3 && String(interaction.data?.custom_id ?? "").startsWith("appeal_reply:")) {
     const caseId = String(interaction.data.custom_id).split(":")[1];
     const rows = await dbSelect("discord_moderation_cases", { select: "id,case_code,subject_user_id", id: `eq.${caseId}`, limit: "1" });
