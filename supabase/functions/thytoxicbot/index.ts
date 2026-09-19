@@ -1115,7 +1115,7 @@ async function handleCommand(interaction: AnyRecord): Promise<Json> {
   if (subcommand === "caseclose") return await caseCloseCommand(interaction, config, values);
   if (subcommand === "casedelete") return await deleteCaseCommand(interaction, config, values);
   if (subcommand === "clearinfractions") return await clearAllInfractionsCommand(interaction, config, values);
-  if (subcommand === "polls") return await pollsCommand();
+  if (subcommand === "poll" || subcommand === "polls") return await pollsCommand();
   if (subcommand === "pollcreate") return await pollCreateCommand(interaction, config, values);
   if (subcommand === "pollclose") return await pollCloseCommand(interaction, config, values);
   if (subcommand === "pollclear") return await pollClearCommand(interaction, config, values);

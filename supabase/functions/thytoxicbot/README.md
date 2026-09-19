@@ -57,4 +57,6 @@ Install/update link:
 - `/t clearinfractions` is owner-only, requires the exact confirmation
   `CLEAR ALL INFRACTIONS`, reverses current warnings/timeouts/bans, and keeps
   the protected case and event history for audit purposes.
+- `/t poll` and `/t polls` list every open poll and provide the official Poll
+  Center button. Voting remains website-only.
 - Records and staff notes automatically purge after six months.

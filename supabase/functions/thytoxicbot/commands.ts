@@ -183,7 +183,8 @@ export const T_COMMAND = {
         max_length: 21,
       }],
     },
-    { type: 1, name: "polls", description: "List open polls and open the Poll Center" },
+    { type: 1, name: "poll", description: "Open the Poll Center and list polls accepting votes" },
+    { type: 1, name: "polls", description: "Open the Poll Center and list polls accepting votes" },
     {
       type: 1,
       name: "pollcreate",
