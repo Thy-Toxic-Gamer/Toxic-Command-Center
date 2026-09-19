@@ -7,7 +7,7 @@
   <meta name="description" content="Authorized ThyToxicGamer poll controls.">
   <title>Poll Controls | ThyToxicGamer</title>
   <link rel="icon" type="image/png" href="../tab-icon.png">
-  <link rel="stylesheet" href="styles.css?v=20260919-1">
+  <link rel="stylesheet" href="styles.css?v=20260919-3">
 </head>
 <body class="staff-page">
   <header class="topbar">
@@ -33,7 +33,14 @@
           <label><span>Question</span><input id="pollQuestion" maxlength="240" required placeholder="What should we vote on?"></label>
           <label><span>Description <small>optional</small></span><textarea id="pollDescription" maxlength="1000" rows="3" placeholder="Add context or rules for this vote."></textarea></label>
           <div class="choice-editor"><div class="choice-head"><strong>Choices</strong><button id="addChoice" type="button">+ Add choice</button></div><div id="choiceInputs"></div></div>
-          <label><span>Voting time</span><select id="pollDuration"><option value="60">1 hour</option><option value="15">15 minutes</option><option value="30">30 minutes</option><option value="90">1.5 hours</option><option value="180">3 hours</option><option value="360">6 hours</option><option value="720">12 hours</option><option value="1440">1 day</option><option value="4320">3 days</option><option value="10080">7 days</option><option value="0">No automatic close</option></select></label>
+          <div class="duration-grid">
+            <label><span>Voting time</span><select id="pollDuration"><option value="60">1 hour</option><option value="15">15 minutes</option><option value="30">30 minutes</option><option value="90">1.5 hours</option><option value="180">3 hours</option><option value="360">6 hours</option><option value="720">12 hours</option><option value="1440">1 day</option><option value="4320">3 days</option><option value="10080">7 days</option><option value="custom">Other — enter a time</option><option value="0">No automatic close</option></select></label>
+            <div class="custom-duration" id="customDuration" hidden>
+              <label><span>Custom time</span><input id="pollCustomDuration" type="number" min="5" max="10080" step="1" inputmode="numeric" placeholder="45"></label>
+              <label><span>Unit</span><select id="pollCustomUnit"><option value="1">Minutes</option><option value="60">Hours</option><option value="1440">Days</option></select></label>
+              <small>Custom polls may run from 5 minutes to 7 days.</small>
+            </div>
+          </div>
           <button class="primary" type="submit">Create poll and post to Discord</button>
         </form>
       </section>
@@ -50,6 +57,6 @@
     </div>
   </main>
   <footer><span>THYTOXICGAMER // POLL CONTROLS</span><span><a href="./">Public Poll Center</a> · <a href="../">Command Center</a></span></footer>
-  <script src="staff.js?v=20260919-1"></script>
+  <script src="staff.js?v=20260919-3"></script>
 </body>
 </html>

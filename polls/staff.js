@@ -17,6 +17,10 @@
   const workspace = document.querySelector("#staffWorkspace");
   const notice = document.querySelector("#staffNotice");
   const choiceInputs = document.querySelector("#choiceInputs");
+  const durationSelect = document.querySelector("#pollDuration");
+  const customDuration = document.querySelector("#customDuration");
+  const customDurationInput = document.querySelector("#pollCustomDuration");
+  const customDurationUnit = document.querySelector("#pollCustomUnit");
   let data = null;
   let busy = false;
 
@@ -87,6 +91,28 @@
 
   function renumberChoices() { [...choiceInputs.children].forEach((row, index) => { row.querySelector("b").textContent = index + 1; row.querySelector("input").placeholder = `Choice ${index + 1}`; }); }
 
+  function syncCustomDuration() {
+    const enabled = durationSelect.value === "custom";
+    customDuration.hidden = !enabled;
+    customDurationInput.required = enabled;
+    const multiplier = Number(customDurationUnit.value);
+    customDurationInput.min = multiplier === 1 ? "5" : "1";
+    customDurationInput.max = String(Math.floor(10080 / multiplier));
+    if (!enabled) customDurationInput.setCustomValidity("");
+  }
+
+  function durationMinutes() {
+    if (durationSelect.value !== "custom") return Number(durationSelect.value);
+    const minutes = Number(customDurationInput.value) * Number(customDurationUnit.value);
+    if (!Number.isFinite(minutes) || minutes < 5 || minutes > 10080) {
+      customDurationInput.setCustomValidity("Enter a custom time from 5 minutes to 7 days.");
+      customDurationInput.reportValidity();
+      throw new Error("Enter a custom time from 5 minutes to 7 days.");
+    }
+    customDurationInput.setCustomValidity("");
+    return minutes;
+  }
+
   async function load(silent = false) {
     if (!activeProvider()) return;
     try { render(await api("dashboard")); if (!silent) setNotice(""); }
@@ -99,14 +125,17 @@
   document.querySelectorAll("[data-staff-signin]").forEach((button) => button.addEventListener("click", () => startAuth(button.dataset.staffSignin)));
   document.querySelector("#staffSignOut").addEventListener("click", () => { const platform = activeProvider(); if (platform) sessionStorage.removeItem(PROVIDERS[platform].tokenKey); sessionStorage.removeItem(ACTIVE_KEY); location.reload(); });
   document.querySelector("#addChoice").addEventListener("click", () => addChoice());
+  durationSelect.addEventListener("change", syncCustomDuration);
+  customDurationUnit.addEventListener("change", syncCustomDuration);
+  customDurationInput.addEventListener("input", () => customDurationInput.setCustomValidity(""));
   choiceInputs.addEventListener("click", (event) => { const button = event.target.closest("button"); if (!button || choiceInputs.children.length <= 2) return; button.closest(".choice-row").remove(); renumberChoices(); });
   document.querySelector("#createPollForm").addEventListener("submit", async (event) => {
     event.preventDefault(); if (busy) return;
     const options = [...choiceInputs.querySelectorAll("input")].map((input) => input.value.trim()).filter(Boolean);
     busy = true; event.submitter.disabled = true;
     try {
-      const next = await api("create_poll", { question: document.querySelector("#pollQuestion").value, description: document.querySelector("#pollDescription").value, options, durationMinutes: Number(document.querySelector("#pollDuration").value) });
-      render(next); event.target.reset(); choiceInputs.innerHTML = ""; addChoice(); addChoice(); setNotice("Poll created and posted to Discord.");
+      const next = await api("create_poll", { question: document.querySelector("#pollQuestion").value, description: document.querySelector("#pollDescription").value, options, durationMinutes: durationMinutes() });
+      render(next); event.target.reset(); syncCustomDuration(); choiceInputs.innerHTML = ""; addChoice(); addChoice(); setNotice("Poll created and posted to Discord.");
     } catch (error) { setNotice(error.message, true); }
     finally { busy = false; event.submitter.disabled = false; }
   });
@@ -125,7 +154,7 @@
     catch (error) { setNotice(error.message, true); }
   });
 
-  addChoice(); addChoice();
+  addChoice(); addChoice(); syncCustomDuration();
   setInterval(() => { if (!busy && !document.hidden && activeProvider()) load(true); }, 15000);
   load();
 })();
