@@ -255,7 +255,51 @@
     </article>`;
   }
 
-  function render(data) {
+  const draftFields = ["[data-staff-note]", "[data-secondary-status]", "[data-game-change]", "[data-scheduled-for]", "[data-youtube-vod]"];
+
+  function captureDrafts() {
+    const drafts = new Map();
+    queue.querySelectorAll("[data-request-id]").forEach((card) => {
+      const activeSelector = draftFields.find((selector) => card.querySelector(selector) === document.activeElement) || null;
+      const activeElement = activeSelector ? card.querySelector(activeSelector) : null;
+      const values = Object.fromEntries(draftFields.flatMap((selector) => {
+        const field = card.querySelector(selector);
+        if (!field) return [];
+        const defaultValue = field.tagName === "SELECT"
+          ? (Array.from(field.options).find((option) => option.defaultSelected)?.value ?? field.options[0]?.value ?? "")
+          : field.defaultValue;
+        return field.value !== defaultValue || selector === activeSelector ? [[selector, field.value]] : [];
+      }));
+      drafts.set(card.dataset.requestId, {
+        values,
+        activeSelector,
+        selectionStart: activeElement?.selectionStart ?? null,
+        selectionEnd: activeElement?.selectionEnd ?? null,
+      });
+    });
+    return drafts;
+  }
+
+  function restoreDrafts(drafts) {
+    drafts.forEach((draft, requestId) => {
+      const card = queue.querySelector(`[data-request-id="${CSS.escape(requestId)}"]`);
+      if (!card) return;
+      draftFields.forEach((selector) => {
+        const field = card.querySelector(selector);
+        if (field && Object.hasOwn(draft.values, selector)) field.value = draft.values[selector];
+      });
+      const gameInput = card.querySelector("[data-game-change]");
+      if (gameInput) gameInput.dispatchEvent(new Event("input"));
+      if (draft.activeSelector) {
+        const field = card.querySelector(draft.activeSelector);
+        field?.focus({ preventScroll: true });
+        if (field?.setSelectionRange && draft.selectionStart !== null) field.setSelectionRange(draft.selectionStart, draft.selectionEnd);
+      }
+    });
+  }
+
+  function render(data, preserveDrafts = false) {
+    const drafts = preserveDrafts ? captureDrafts() : new Map();
     dashboardData = data;
     gate.hidden = true;
     workspace.hidden = false;
@@ -269,12 +313,13 @@
     document.querySelector("#archiveCount").textContent = `${data.archive.length} archived`;
     queue.innerHTML = data.queue.length ? data.queue.map(requestCard).join("") : '<div class="empty-staff">No active request.</div>';
     queue.querySelectorAll("[data-request-id]").forEach(setWorkflowFields);
+    if (preserveDrafts) restoreDrafts(drafts);
     archive.innerHTML = data.archive.length ? data.archive.map((row) => archiveCard(row, data.staff.role === "owner")).join("") : '<div class="empty-staff">No archived requests yet.</div>';
   }
 
   async function loadDashboard() {
     if (!activeProvider()) return;
-    try { render(await api("dashboard")); }
+    try { render(await api("dashboard"), true); }
     catch (error) {
       gate.hidden = false;
       workspace.hidden = true;
