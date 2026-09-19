@@ -64,6 +64,7 @@
 .pending-game-change > div { display: flex; gap: 8px; }
 .pending-game-change .change-deny { border-color: var(--pink); background: rgba(255,59,147,.12); color: #ffd4e6; }
 .request-actions .change-game { border-color: #5865f2; background: rgba(88,101,242,.16); color: #fff; }
+.request-actions .change-game.confirm-ready { border-color: var(--toxic); background: var(--toxic); color: #080a08; }
 .request-actions [hidden] { display: none; }
 .request-actions button { min-height: 39px; border: 1px solid var(--toxic); border-radius: 8px; background: var(--toxic); color: #080a08; font-weight: 900; cursor: pointer; }
 .request-actions .delete-archive { grid-column: 1 / -1; border-color: var(--pink); background: rgba(255,59,147,.1); color: #ffc7df; }

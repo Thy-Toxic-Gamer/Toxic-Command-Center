@@ -211,7 +211,7 @@
         <label class="action-field secondary-field"><span>Other action</span><select data-secondary-status><option value="">Choose only when needed</option><option value="denied">Deny request</option><option value="cancelled">Cancel request</option><option value="expired">Expire now</option></select></label>
         <button class="secondary-action" type="button" data-secondary-action>Apply other action</button>
         <label class="action-field game-change-field"><span>Staff game correction <small>type a title, included game, or catalog number</small></span><input data-game-change list="${escapeHtml(gameListId)}" autocomplete="off" placeholder="Search games…" value="${escapeHtml(currentGame ? catalogLabel(currentGame) : `${row.game_title} · ${row.game_id} · ${row.game_system}`)}"><datalist id="${escapeHtml(gameListId)}" data-game-list>${gameOptions}</datalist></label>
-        <button class="change-game" type="button" data-change-game>Change game</button>
+        <button class="change-game" type="button" data-change-game>Review game change</button>
       </div>
     </article>`;
   }
@@ -224,6 +224,12 @@
     if (gameInput && gameList) gameInput.addEventListener("input", () => {
       gameList.innerHTML = catalogResults(gameInput.value).slice(0, 20)
         .map((game) => `<option value="${escapeHtml(catalogLabel(game))}"></option>`).join("");
+      const changeButton = card.querySelector("[data-change-game]");
+      if (changeButton) {
+        delete changeButton.dataset.confirmGameId;
+        changeButton.textContent = "Review game change";
+        changeButton.classList.remove("confirm-ready");
+      }
     });
   }
 
@@ -364,6 +370,13 @@
       if (mode === "deny" && !note) { setNotice("Add a reason before denying the viewer's game change.", true); card.querySelector("[data-staff-note]").focus(); return; }
       const selectedGame = mode === "direct" ? resolveCatalogGame(card.querySelector("[data-game-change]").value) : null;
       if (mode === "direct" && !selectedGame) { setNotice("Choose one game from the search suggestions. Add the system or catalog number if more than one version appears.", true); card.querySelector("[data-game-change]").focus(); return; }
+      if (mode === "direct" && changeButton.dataset.confirmGameId !== selectedGame.id) {
+        changeButton.dataset.confirmGameId = selectedGame.id;
+        changeButton.textContent = "Approve game change";
+        changeButton.classList.add("confirm-ready");
+        setNotice(`Review this change: ${card.querySelector("h3")?.textContent || "current game"} → ${selectedGame.title}. Click Approve game change to confirm.`);
+        return;
+      }
       const button = changeButton || resolveButton;
       button.disabled = true;
       try {
