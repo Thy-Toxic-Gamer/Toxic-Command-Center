@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#070908">
+  <meta name="referrer" content="no-referrer">
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://unpkg.com; style-src 'self' 'unsafe-inline'; img-src 'self' https://cdn.discordapp.com data:; connect-src https://ubldjtsjfudogtgxakiq.supabase.co; base-uri 'self'; frame-ancestors 'none'">
+  <title>Staff Ticket Records | ThyToxicGamer</title>
+  <link rel="icon" type="image/png" href="../tab-icon.png">
+  <link rel="stylesheet" href="styles.css?v=20260919-2">
+  <script src="https://unpkg.com/lucide@0.468.0/dist/umd/lucide.min.js" defer></script>
+  <script src="staff.js?v=20260919-1" defer></script>
+</head>
+<body class="staff-page">
+  <header class="topbar">
+    <a class="brand" href="./"><img src="../tab-icon.png" alt=""><span><strong>ThyToxicGamer</strong><small>Ticket Records</small></span></a>
+    <nav aria-label="Staff Ticket Center navigation"><a href="./">Public Tickets</a><a class="active" href="staff.html" aria-current="page">Staff Records</a><a href="../">Command Center</a></nav>
+  </header>
+
+  <main>
+    <section class="staff-hero">
+      <div><p class="eyebrow"><i data-lucide="shield-check"></i> Authorized staff only</p><h1>Ticket <span>Records</span></h1><p>Closed Discord tickets are archived here before their private channels are removed. Records automatically delete after six months.</p></div>
+      <div class="staff-session"><span id="staff-access"><i data-lucide="lock-keyhole"></i> Access check required</span><button class="primary" id="staff-signin" type="button">Sign in with Discord</button><button class="secondary-button" id="staff-signout" type="button" hidden>Sign out</button></div>
+    </section>
+
+    <div id="staff-notice" class="staff-notice" hidden></div>
+
+    <section id="staff-workspace" class="ticket-workspace" hidden>
+      <aside class="ticket-queue">
+        <div class="queue-heading"><div><p class="eyebrow">Archive</p><h2>Saved tickets</h2></div><span id="ticket-count">0 records</span></div>
+        <label class="search-field"><i data-lucide="search"></i><input id="ticket-search" type="search" placeholder="Ticket number or member"></label>
+        <div class="ticket-filters" id="status-filters"><button class="active" data-status="all">All</button><button data-status="open">Open</button><button data-status="closed">Closed</button><button data-status="failed">Failed</button></div>
+        <div class="ticket-filters" id="type-filters"><button class="active" data-type="all">All types</button><button data-type="general">General</button><button data-type="report">Reports</button><button data-type="staff">Staff</button><button data-type="suggestion">Suggestions</button></div>
+        <div class="ticket-record-list" id="ticket-list"><p class="empty-state">Sign in to load ticket records.</p></div>
+      </aside>
+
+      <section class="ticket-record" id="ticket-record">
+        <div class="empty-record"><i data-lucide="messages-square"></i><h2>Select a ticket</h2><p>Choose a saved record to review its private conversation and attachments.</p></div>
+      </section>
+    </section>
+  </main>
+
+  <footer><span>THYTOXICGAMER // PROTECTED TICKET ARCHIVE</span><a href="./">Public Ticket Center</a></footer>
+</body>
+</html>
