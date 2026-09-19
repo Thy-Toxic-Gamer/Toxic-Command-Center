@@ -170,6 +170,8 @@ function renderDetail(ticket) {
   meta.append(
     metaItem("Requester", ticket.requester_display_name || ticket.requester_username),
     metaItem("Discord ID", ticket.requester_user_id),
+    metaItem("Assigned staff", ticket.assigned_to_name || "Unclaimed"),
+    metaItem("Claimed", formatDate(ticket.claimed_at)),
     metaItem("Opened", formatDate(ticket.opened_at)),
     metaItem("Closed", formatDate(ticket.closed_at)),
     metaItem("Closed by", ticket.closed_by_name || "Not closed"),
