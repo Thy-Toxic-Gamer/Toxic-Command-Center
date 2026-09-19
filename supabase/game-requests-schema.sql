@@ -48,6 +48,8 @@ create table if not exists public.game_catalog (
   title text not null,
   system text not null,
   cover_url text,
+  display_id text,
+  search_aliases text[] not null default '{}',
   requestable boolean not null default true,
   updated_at timestamptz not null default now()
 );
@@ -102,6 +104,24 @@ create table if not exists public.game_requests (
 );
 
 alter table public.game_catalog add column if not exists cover_url text;
+alter table public.game_catalog add column if not exists display_id text;
+alter table public.game_catalog add column if not exists search_aliases text[] not null default '{}';
+
+update public.game_catalog
+set display_id = collection.display_id,
+    search_aliases = collection.search_aliases,
+    updated_at = now()
+from (values
+  ('PC#020', 'PC#020–PC#021', array['PC#020','PC#021','DOOM','DOOM II','DOOM 2']::text[]),
+  ('SW#021', 'SW#021–SW#026', array['SW#021','SW#022','SW#023','SW#024','SW#025','SW#026','Mega Man Zero','Mega Man Zero 2','Mega Man Zero 3','Mega Man Zero 4','Mega Man ZX','Mega Man ZX Advent']::text[]),
+  ('SW#031', 'SW#031–SW#032', array['SW#031','SW#032','Langrisser I','Langrisser 1','Langrisser II','Langrisser 2']::text[]),
+  ('PS4#005', 'PS4#005–PS4#010', array['PS4#005','PS4#006','PS4#007','PS4#008','PS4#009','PS4#010','Mega Man Zero','Mega Man Zero 2','Mega Man Zero 3','Mega Man Zero 4','Mega Man ZX','Mega Man ZX Advent']::text[]),
+  ('PS4#020', 'PS4#020–PS4#023', array['PS4#020','PS4#021','PS4#022','PS4#023','Mega Man X','Mega Man X2','Mega Man X3','Mega Man X4']::text[]),
+  ('PS4#024', 'PS4#024–PS4#027', array['PS4#024','PS4#025','PS4#026','PS4#027','Mega Man X5','Mega Man X6','Mega Man X7','Mega Man X8']::text[]),
+  ('PS4#052', 'PS4#052–PS4#053', array['PS4#052','PS4#053','Kingdom Hearts Dream Drop Distance HD','Kingdom Hearts Birth by Sleep 0.2','A Fragmentary Passage','Kingdom Hearts Back Cover']::text[]),
+  ('PS4#054', 'PS4#054–PS4#059', array['PS4#054','PS4#055','PS4#056','PS4#057','PS4#058','PS4#059','Kingdom Hearts Final Mix','Kingdom Hearts Re Chain of Memories','Kingdom Hearts 358 2 Days','Kingdom Hearts II Final Mix','Kingdom Hearts 2 Final Mix','Kingdom Hearts Birth by Sleep Final Mix','Kingdom Hearts Re coded']::text[])
+) as collection(id, display_id, search_aliases)
+where public.game_catalog.id = collection.id;
 alter table public.game_requests add column if not exists completed_at timestamptz;
 alter table public.game_requests add column if not exists game_cover_url text;
 alter table public.game_requests add column if not exists discord_delete_at timestamptz;
@@ -136,6 +156,9 @@ create index if not exists game_requests_status_idx
   on public.game_requests (status, created_at desc);
 create index if not exists game_requests_game_idx
   on public.game_requests (game_id, status);
+create index if not exists game_requests_pending_change_game_idx
+  on public.game_requests (pending_change_game_id)
+  where pending_change_game_id is not null;
 create index if not exists game_requests_discord_cleanup_idx
   on public.game_requests (discord_delete_at)
   where discord_message_id is not null and discord_delete_at is not null;
