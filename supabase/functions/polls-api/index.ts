@@ -325,7 +325,7 @@ async function closePoll(admin: any, identity: Identity, staff: any, body: any) 
 
 async function clearPolls(admin: any, identity: Identity, staff: any, body: any) {
   if (staff.role !== "owner") throw new ApiError("Only the owner can clear all polls.", 403);
-  if (String(body.confirmation || "") !== "CLEAR ALL POLLS") throw new ApiError("Type CLEAR ALL POLLS exactly to confirm.");
+  if (body.confirmed !== true) throw new ApiError("Owner confirmation is required.");
   const now = new Date().toISOString();
   const { data: rows, error } = await admin.from("polls").update({ status: "archived", closed_at: now, updated_at: now }).neq("status", "archived").select("id");
   if (error) throw new ApiError("Polls could not be cleared.", 500);
