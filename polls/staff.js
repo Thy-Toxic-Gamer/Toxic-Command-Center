@@ -1,5 +1,25 @@
 (() => {
   "use strict";
+  function resetDeleteButton(button) {
+    if (!button) return;
+    button.classList.remove("confirm-delete");
+    button.dataset.confirmDelete = "false";
+    if (button.dataset.deleteOriginalHtml)
+      button.innerHTML = button.dataset.deleteOriginalHtml;
+  }
+  function armDeleteButton(button) {
+    if (button.dataset.confirmDelete === "true") return true;
+    button.dataset.confirmDelete = "true";
+    button.dataset.deleteOriginalHtml = button.innerHTML;
+    button.classList.add("confirm-delete");
+    button.textContent = "Confirm Delete";
+    window.setTimeout(() => {
+      if (button.isConnected && button.dataset.confirmDelete === "true")
+        resetDeleteButton(button);
+    }, 8000);
+    return false;
+  }
+
 
   const API_URL = "https://ubldjtsjfudogtgxakiq.supabase.co/functions/v1/polls-api";
   const API_KEY = "sb_publishable_Fhl-Co0p5QNJKJ7ou2Te2Q_FD8BIywM";
@@ -147,11 +167,20 @@
     catch (error) { setNotice(error.message, true); }
     finally { busy = false; }
   });
-  document.querySelector("#clearPolls").addEventListener("click", async () => {
-    const confirmation = prompt("Type CLEAR ALL POLLS to archive every poll.");
-    if (confirmation === null) return;
-    try { render(await api("clear_polls", { confirmation })); setNotice("All polls were archived. Discord final records were preserved."); }
-    catch (error) { setNotice(error.message, true); }
+  document.querySelector("#clearPolls").addEventListener("click", async (event) => {
+    const button = event.currentTarget;
+    if (!armDeleteButton(button)) return;
+    button.disabled = true;
+    try {
+      render(await api("clear_polls", { confirmed: true }));
+      button.disabled = false;
+      resetDeleteButton(button);
+      setNotice("All polls were archived. Discord final records were preserved.");
+    } catch (error) {
+      button.disabled = false;
+      resetDeleteButton(button);
+      setNotice(error.message, true);
+    }
   });
 
   addChoice(); addChoice(); syncCustomDuration();
