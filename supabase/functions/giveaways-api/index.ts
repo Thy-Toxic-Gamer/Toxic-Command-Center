@@ -232,8 +232,9 @@ function claimSchema(value: unknown) {
   if (!Array.isArray(parsed) || parsed.length > 12)
     throw new ApiError("Add no more than 12 custom questions.");
   return parsed.map((field: any, index) => ({
-    key: `field_${index + 1}`,
+    key: /^[a-z0-9_]{1,40}$/.test(String(field?.key || "")) ? String(field.key) : `field_${index + 1}`,
     label: clean(field?.label, 100, true),
+    kind: ["text", "email", "textarea"].includes(String(field?.kind)) ? String(field.kind) : "text",
     required: !!field?.required,
   }));
 }
