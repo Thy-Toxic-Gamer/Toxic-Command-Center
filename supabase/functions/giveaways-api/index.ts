@@ -1,6 +1,7 @@
 import { createClient } from "npm:@supabase/supabase-js@2.95.0";
 const TWITCH_CLIENT_ID = "ht2kbpz12tpv060f2259jn9recng0x",
   DISCORD_CLIENT_ID = "1544711402873290873",
+  GIVEAWAY_LOG_CHANNEL_ID = "1551028963126673408",
   ORIGIN = "https://thy-toxic-gamer.github.io";
 const CORS = {
   "Access-Control-Allow-Origin": ORIGIN,
@@ -122,6 +123,26 @@ async function discordBot(path: string) {
   });
   if (!r.ok) throw new Error("Discord staff lookup failed.");
   return await r.json();
+}
+async function postGiveawayLog(g: any, i: Identity) {
+  const token = Deno.env.get("DISCORD_BOT_TOKEN");
+  if (!token) throw new Error("Discord bot unavailable.");
+  const code = `TTG-GIVE-${String(g.giveaway_number).padStart(6, "0")}`;
+  const response = await fetch(`https://discord.com/api/v10/channels/${GIVEAWAY_LOG_CHANNEL_ID}/messages`, {
+    method: "POST",
+    headers: { Authorization: `Bot ${token}`, "Content-Type": "application/json" },
+    body: JSON.stringify({
+      allowed_mentions: { parse: [] },
+      embeds: [{
+        title: "Giveaway receipt confirmed",
+        description: `**${code}**\n**Prize:** ${g.title}\n**Winner:** ${g.winner_display_name || i.displayName} (@${g.winner_login || i.login})\n**Status:** Winner confirmed the prize was received.\n\nPrivate fulfillment information is intentionally excluded.`,
+        color: 0xb5ff18,
+        timestamp: new Date().toISOString(),
+        footer: { text: "ThyToxicGamer Giveaway Log" },
+      }],
+    }),
+  });
+  if (!response.ok) throw new Error(`Discord giveaway log failed (${response.status}).`);
 }
 async function guildStaff(db: any, userId: string) {
   const { data: configs } = await db
@@ -280,6 +301,7 @@ async function dashboards(db: any, i: Identity, role: string) {
                   notes: c.delivery_notes,
                   carrier: c.carrier,
                   trackingNumber: c.tracking_number,
+                  prizeReceivedAt: c.prize_received_at,
                   customAnswers: (g.claim_schema || []).map((field: any) => ({
                     label: field.label,
                     value: c.custom_answers?.[field.key] || "",
@@ -360,7 +382,7 @@ Deno.serve(async (r) => {
         }
         const { data: c } = await db
           .from("giveaway_claims")
-          .select("tracking_number,carrier,winner_saved_tracking_at")
+          .select("tracking_number,carrier,winner_saved_tracking_at,prize_received_at")
           .eq("giveaway_id", g.id)
           .maybeSingle();
         out.push({
@@ -375,6 +397,7 @@ Deno.serve(async (r) => {
           trackingNumber: c?.tracking_number || "",
           carrier: c?.carrier || "",
           winnerSavedTrackingAt: c?.winner_saved_tracking_at,
+          prizeReceivedAt: c?.prize_received_at,
         });
       }
       return reply({
@@ -453,14 +476,21 @@ Deno.serve(async (r) => {
         await event(db, g.id, "tracking_saved", i);
         return reply({ ok: true });
       }
+      const { data: currentClaim } = await db.from("giveaway_claims").select("prize_received_at").eq("giveaway_id", g.id).maybeSingle();
+      if (!currentClaim) throw new ApiError("The claim record could not be found.", 404);
+      if (currentClaim.prize_received_at) return reply({ ok: true, alreadyConfirmed: true });
+      const confirmedAt = new Date().toISOString();
       await db
         .from("giveaway_claims")
-        .update({
-          prize_received_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-        })
+        .update({ prize_received_at: confirmedAt, updated_at: confirmedAt })
         .eq("giveaway_id", g.id);
       await event(db, g.id, "prize_received", i);
+      try { await postGiveawayLog(g, i); }
+      catch (logError) {
+        console.error(logError);
+        await event(db, g.id, "giveaway_log_failed", i, { channelId: GIVEAWAY_LOG_CHANNEL_ID });
+        throw new ApiError("Your receipt was saved, but the Discord log could not be posted. Please notify the owner.", 502);
+      }
       return reply({ ok: true });
     }
     const s = await staff(db, i);
