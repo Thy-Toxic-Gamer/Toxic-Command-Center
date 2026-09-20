@@ -476,20 +476,21 @@ Deno.serve(async (r) => {
         await event(db, g.id, "tracking_saved", i);
         return reply({ ok: true });
       }
-      const { data: currentClaim } = await db.from("giveaway_claims").select("prize_received_at").eq("giveaway_id", g.id).maybeSingle();
+      const { data: currentClaim } = await db.from("giveaway_claims").select("prize_received_at,receipt_log_sent_at").eq("giveaway_id", g.id).maybeSingle();
       if (!currentClaim) throw new ApiError("The claim record could not be found.", 404);
-      if (currentClaim.prize_received_at) return reply({ ok: true, alreadyConfirmed: true });
-      const confirmedAt = new Date().toISOString();
-      await db
-        .from("giveaway_claims")
-        .update({ prize_received_at: confirmedAt, updated_at: confirmedAt })
-        .eq("giveaway_id", g.id);
-      await event(db, g.id, "prize_received", i);
-      try { await postGiveawayLog(g, i); }
-      catch (logError) {
+      if (currentClaim.prize_received_at && currentClaim.receipt_log_sent_at) return reply({ ok: true, alreadyConfirmed: true });
+      const confirmedAt = currentClaim.prize_received_at || new Date().toISOString();
+      if (!currentClaim.prize_received_at) {
+        await db.from("giveaway_claims").update({ prize_received_at: confirmedAt, updated_at: confirmedAt }).eq("giveaway_id", g.id);
+        await event(db, g.id, "prize_received", i);
+      }
+      try {
+        await postGiveawayLog(g, i);
+        await db.from("giveaway_claims").update({ receipt_log_sent_at: new Date().toISOString(), updated_at: new Date().toISOString() }).eq("giveaway_id", g.id);
+      } catch (logError) {
         console.error(logError);
         await event(db, g.id, "giveaway_log_failed", i, { channelId: GIVEAWAY_LOG_CHANNEL_ID });
-        throw new ApiError("Your receipt was saved, but the Discord log could not be posted. Please notify the owner.", 502);
+        throw new ApiError("Your receipt was saved, but the Discord log could not be posted. Press the button again to retry the log.", 502);
       }
       return reply({ ok: true });
     }
