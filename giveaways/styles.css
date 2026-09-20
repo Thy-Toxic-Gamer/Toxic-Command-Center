@@ -258,6 +258,49 @@ label {
 label.full {
   grid-column: 1/-1;
 }
+.custom-builder {
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: #090c0a;
+}
+.custom-builder-head,
+.custom-field {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.custom-builder-head strong,
+.custom-builder-head small {
+  display: block;
+}
+.custom-builder-head small {
+  margin-top: 4px;
+  color: var(--muted);
+}
+.custom-field {
+  margin-top: 10px;
+}
+.custom-field input[type="text"] {
+  flex: 1;
+}
+.custom-field label {
+  display: flex;
+  grid: initial;
+  align-items: center;
+  gap: 7px;
+  white-space: nowrap;
+}
+.custom-field input[type="checkbox"] {
+  width: auto;
+}
+.custom-field .remove-field {
+  min-width: 38px;
+  padding: 10px;
+  color: #ffd5e7;
+  border-color: var(--pink);
+}
 input,
 textarea,
 select {
