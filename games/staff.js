@@ -1,5 +1,25 @@
 (() => {
   "use strict";
+  function resetDeleteButton(button) {
+    if (!button) return;
+    button.classList.remove("confirm-delete");
+    button.dataset.confirmDelete = "false";
+    if (button.dataset.deleteOriginalHtml)
+      button.innerHTML = button.dataset.deleteOriginalHtml;
+  }
+  function armDeleteButton(button) {
+    if (button.dataset.confirmDelete === "true") return true;
+    button.dataset.confirmDelete = "true";
+    button.dataset.deleteOriginalHtml = button.innerHTML;
+    button.classList.add("confirm-delete");
+    button.textContent = "Confirm Delete";
+    window.setTimeout(() => {
+      if (button.isConnected && button.dataset.confirmDelete === "true")
+        resetDeleteButton(button);
+    }, 8000);
+    return false;
+  }
+
 
   const API_URL = "https://ubldjtsjfudogtgxakiq.supabase.co/functions/v1/game-requests-staff-api";
   const API_KEY = "sb_publishable_Fhl-Co0p5QNJKJ7ou2Te2Q_FD8BIywM";
@@ -416,11 +436,10 @@
   });
   archive.addEventListener("click", async (event) => {
     const button = event.target.closest("[data-delete-request]");
-    if (!button) return;
-    if (!confirm("Permanently delete this archived request? This cannot be undone.")) return;
+    if (!button || !armDeleteButton(button)) return;
     button.disabled = true;
     try { render(await api("delete_request", { id: button.closest("[data-request-id]").dataset.requestId })); setNotice("Archived request permanently deleted."); }
-    catch (error) { setNotice(error.message, true); button.disabled = false; }
+    catch (error) { setNotice(error.message, true); button.disabled = false; resetDeleteButton(button); }
   });
 
   const authError = sessionStorage.getItem("thy_toxic_appeals_auth_error");
