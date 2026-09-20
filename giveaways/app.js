@@ -74,8 +74,12 @@
     if (g.prizeType === "other")
       return (g.claimSchema || [])
         .map(
-          (field) =>
-            `<label class="full">${esc(field.label)}${field.required ? "" : " <small>optional</small>"}<input name="custom_${esc(field.key)}" maxlength="500" ${field.required ? "required" : ""}></label>`,
+          (field) => {
+            const control = field.kind === "textarea"
+              ? `<textarea name="custom_${esc(field.key)}" maxlength="1000" rows="3" ${field.required ? "required" : ""}></textarea>`
+              : `<input name="custom_${esc(field.key)}" type="${field.kind === "email" ? "email" : "text"}" maxlength="500" ${field.required ? "required" : ""}>`;
+            return `<label class="full">${esc(field.label)}${field.required ? "" : " <small>optional</small>"}${control}</label>`;
+          },
         )
         .join("");
     return '<label>Email<input name="email" type="email" maxlength="320" required></label><label>Recipient full name<input name="fullName" maxlength="160" required></label><label class="full">Address line 1<input name="address1" maxlength="200" required></label><label class="full">Address line 2 <small>optional</small><input name="address2" maxlength="200"></label><label>City<input name="city" maxlength="120" required></label><label>State / region<input name="region" maxlength="120" required></label><label>Postal code<input name="postalCode" maxlength="40" required></label><label>Country<input name="country" maxlength="100" required></label><label class="full">Delivery notes <small>optional</small><textarea name="notes" maxlength="1000" rows="3"></textarea></label>';
