@@ -97,7 +97,7 @@
   function card(g) {
     const owner = state.staff.role === "owner",
       details = g.claim
-        ? `<div class="details private">${g.claim.fullName ? `<div><b>Full name</b>${esc(g.claim.fullName)}</div>` : ""}${g.claim.email ? `<div><b>Email</b>${esc(g.claim.email)}</div>` : ""}${g.claim.address1 ? `<div><b>Shipping address</b>${esc(g.claim.address1)} ${esc(g.claim.address2)}<br>${esc(g.claim.city)}, ${esc(g.claim.region)} ${esc(g.claim.postalCode)}<br>${esc(g.claim.country)}</div>` : ""}${g.claim.notes ? `<div><b>Delivery notes</b>${esc(g.claim.notes)}</div>` : ""}${customAnswerDetails(g.claim)}</div>`
+        ? `<div class="details private">${g.claim.fullName ? `<div><b>Full name</b>${esc(g.claim.fullName)}</div>` : ""}${g.claim.email ? `<div><b>Email</b>${esc(g.claim.email)}</div>` : ""}${g.claim.address1 ? `<div><b>Shipping address</b>${esc(g.claim.address1)} ${esc(g.claim.address2)}<br>${esc(g.claim.city)}, ${esc(g.claim.region)} ${esc(g.claim.postalCode)}<br>${esc(g.claim.country)}</div>` : ""}${g.claim.notes ? `<div><b>Delivery notes</b>${esc(g.claim.notes)}</div>` : ""}${customAnswerDetails(g.claim)}${g.claim.prizeReceivedAt ? `<div><b>Receipt status</b>Winner confirmed receipt on ${esc(new Date(g.claim.prizeReceivedAt).toLocaleString())}</div>` : ""}</div>`
         : g.claimSubmitted
           ? '<div class="safe">Claim submitted. Private information is visible only to the owner.</div>'
           : "";
