@@ -105,14 +105,19 @@
       )
       .join("");
   }
-  function card(g) {
+  function card(g, archived = false) {
     const owner = state.staff.role === "owner",
       details = g.claim
         ? `<div class="details private">${g.claim.fullName ? `<div><b>Full name</b>${esc(g.claim.fullName)}</div>` : ""}${g.claim.email ? `<div><b>Email</b>${esc(g.claim.email)}</div>` : ""}${g.claim.address1 ? `<div><b>Shipping address</b>${esc(g.claim.address1)} ${esc(g.claim.address2)}<br>${esc(g.claim.city)}, ${esc(g.claim.region)} ${esc(g.claim.postalCode)}<br>${esc(g.claim.country)}</div>` : ""}${g.claim.notes ? `<div><b>Delivery notes</b>${esc(g.claim.notes)}</div>` : ""}${customAnswerDetails(g.claim)}${g.claim.prizeReceivedAt ? `<div><b>Receipt status</b>Winner confirmed receipt on ${esc(new Date(g.claim.prizeReceivedAt).toLocaleString())}</div>` : ""}</div>`
         : g.claimSubmitted
           ? '<div class="safe">Claim submitted. Private information is visible only to the owner.</div>'
-          : "";
-    return `<article class="card" data-id="${esc(g.id)}">${g.imageUrl ? `<img class="prize" src="${esc(g.imageUrl)}" alt="${esc(g.title)}">` : ""}<span class="status">${esc(g.status.replaceAll("_", " "))}</span><h3>${esc(g.code)} · ${esc(g.title)}</h3><p class="muted">${esc(g.description)}</p>${g.winnerLogin ? `<div class="safe">Winner: ${esc(g.winnerDisplayName || g.winnerLogin)} (@${esc(g.winnerLogin)})</div>` : `<form class="winnerForm"><label>Nightbot winner's exact Twitch username<input name="winner" required pattern="[A-Za-z0-9_]{4,25}"></label><button class="button primary">Activate winner claim</button></form>`}${details}${owner && g.claimSubmitted && g.prizeType === "physical" ? `<form class="trackingForm"><div class="fields"><label>Carrier<input name="carrier" value="${esc(g.claim?.carrier)}"></label><label>Tracking number<input name="tracking" value="${esc(g.claim?.trackingNumber)}"></label></div><button class="button">Save tracking</button></form>` : ""}<div class="actions">${g.status !== "completed" ? '<button class="button complete">Mark completed</button>' : ""}${g.status !== "closed" ? '<button class="button close">Close</button>' : ""}${owner && g.claimSubmitted ? '<button class="button danger deleteClaim">Delete private claim data</button>' : ""}</div></article>`;
+          : "",
+      actions = archived
+        ? owner && g.claimSubmitted
+          ? '<button class="button danger deleteClaim">Delete private claim data</button>'
+          : ""
+        : `${g.status !== "completed" ? '<button class="button complete">Mark completed</button>' : ""}${g.status !== "closed" ? '<button class="button close">Close</button>' : ""}${owner && g.claimSubmitted ? '<button class="button danger deleteClaim">Delete private claim data</button>' : ""}`;
+    return `<article class="card${archived ? " archived-card" : ""}" data-id="${esc(g.id)}">${g.imageUrl ? `<img class="prize" src="${esc(g.imageUrl)}" alt="${esc(g.title)}">` : ""}<span class="status">${esc(g.status.replaceAll("_", " "))}</span><h3>${esc(g.code)} · ${esc(g.title)}</h3><p class="muted">${esc(g.description)}</p>${archived && g.completedAt ? `<p class="muted archive-date">Completed ${esc(new Date(g.completedAt).toLocaleString())}</p>` : ""}${g.winnerLogin ? `<div class="safe">Winner: ${esc(g.winnerDisplayName || g.winnerLogin)} (@${esc(g.winnerLogin)})</div>` : archived ? "" : `<form class="winnerForm"><label>Nightbot winner's exact Twitch username<input name="winner" required pattern="[A-Za-z0-9_]{4,25}"></label><button class="button primary">Activate winner claim</button></form>`}${details}${!archived && owner && g.claimSubmitted && g.prizeType === "physical" ? `<form class="trackingForm"><div class="fields"><label>Carrier<input name="carrier" value="${esc(g.claim?.carrier)}"></label><label>Tracking number<input name="tracking" value="${esc(g.claim?.trackingNumber)}"></label></div><button class="button">Save tracking</button></form>` : ""}${actions ? `<div class="actions">${actions}</div>` : ""}</article>`;
   }
   function syncCustomBuilder() {
     const other = q('[name="prizeType"]').value === "other";
@@ -131,9 +136,16 @@
     q("#avatar").src = d.staff.avatarUrl || "../tab-icon.png";
     q("#viewerName").textContent = d.staff.displayName;
     q("#viewerRole").textContent = d.staff.role;
-    q("#cards").innerHTML = d.giveaways.length
-      ? d.giveaways.map(card).join("")
-      : '<p class="muted">No giveaways yet.</p>';
+    const active = d.giveaways.filter((g) => g.status !== "completed"),
+      archived = d.giveaways.filter((g) => g.status === "completed");
+    q("#cards").innerHTML = active.length
+      ? active.map((g) => card(g)).join("")
+      : '<p class="muted">No active giveaways.</p>';
+    q("#archives").innerHTML = archived.length
+      ? archived.map((g) => card(g, true)).join("")
+      : '<p class="muted">No archived giveaways.</p>';
+    q("#clearArchives").hidden =
+      d.staff.role !== "owner" || !archived.length;
   }
   async function load() {
     if (!provider()) return;
@@ -205,14 +217,14 @@
       notice(x.message, true);
     }
   });
-  q("#cards").addEventListener("click", async (e) => {
+  async function handleCardClick(e) {
     const b = e.target.closest("button"),
       id = b?.closest("[data-id]")?.dataset.id;
     if (!id || !b) return;
     try {
       if (
         b.classList.contains("complete") &&
-        confirm("Mark completed and permanently delete the prize image?")
+        confirm("Mark completed and move this giveaway into the archives?")
       )
         render(await api("complete", { id }));
       if (b.classList.contains("close") && confirm("Close this giveaway?"))
@@ -233,7 +245,27 @@
     } catch (x) {
       notice(x.message, true);
     }
-  });
+  }
+  q("#cards").addEventListener("click", handleCardClick);
+  q("#archives").addEventListener("click", handleCardClick);
+  q("#clearArchives").onclick = async () => {
+    if (
+      prompt(
+        "This permanently deletes every completed giveaway and its private claim data. Type CLEAR GIVEAWAY ARCHIVES to continue.",
+      ) !== "CLEAR GIVEAWAY ARCHIVES"
+    )
+      return;
+    try {
+      render(
+        await api("clear_archives", {
+          confirmation: "CLEAR GIVEAWAY ARCHIVES",
+        }),
+      );
+      notice("Giveaway archives cleared.");
+    } catch (x) {
+      notice(x.message, true);
+    }
+  };
   renderPresetFields();
   syncCustomBuilder();
   load();
