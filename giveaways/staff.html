@@ -1,5 +1,112 @@
-<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Giveaway Controls | ThyToxicGamer</title><link rel="icon" href="../tab-icon.png"><link rel="stylesheet" href="styles.css"></head><body>
-<header class="topbar"><a class="brand" href="../"><img src="../tab-icon.png" alt=""><span><strong>ThyToxicGamer</strong><small>Giveaway Network</small></span></a><nav><a href="./">Claim Center</a><a class="active" href="staff.html">Staff Controls</a></nav><div class="viewer" id="viewer" hidden><img id="avatar" alt=""><span><strong id="viewerName"></strong><small id="viewerRole"></small></span><button class="button" id="signOut">Sign out</button></div></header>
-<main><section class="hero"><p class="eyebrow">Owner + moderator workspace</p><h1>Giveaway controls</h1><p>Create a prize, record the Nightbot winner, monitor claim status, and complete fulfillment. Private winner details remain owner-only.</p></section><div id="notice" class="notice" hidden></div>
-<section id="gate" class="gate"><h2>Authorized staff sign-in</h2><div class="signin-row"><button class="button twitch" data-signin="twitch">Continue with Twitch</button><button class="button discord" data-signin="discord">Continue with Discord</button></div></section>
-<div id="workspace" hidden><section class="panel"><h2>Create giveaway</h2><p class="muted">Create this before opening Nightbot. The prize image is private and will be removed when you mark the giveaway completed.</p><form id="createForm"><div class="fields"><label>Prize title<input name="title" maxlength="160" required></label><label>Prize type<select name="prizeType"><option value="physical">Physical prize</option><option value="digital">Digital prize</option><option value="game_key">Game key</option><option value="twitch_subscription">Twitch subscription</option><option value="other">Other</option></select></label><label class="full">Description<textarea name="description" maxlength="2000" rows="3"></textarea></label><label class="full">Prize image (JPG, PNG, WEBP, or GIF; max 5 MB)<input name="image" type="file" accept="image/jpeg,image/png,image/webp,image/gif" required></label></div><button class="button primary" type="submit">Create giveaway</button></form></section><section class="panel"><h2>Giveaways</h2><div id="cards" class="grid"></div></section></div></main><footer>THYTOXICGAMER // GIVEAWAY CONTROLS</footer><script src="staff.js"></script></body></html>
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Giveaway Controls | ThyToxicGamer</title>
+    <link rel="icon" href="../tab-icon.png" />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <a class="brand" href="../"
+        ><img src="../tab-icon.png" alt="" /><span
+          ><strong>ThyToxicGamer</strong><small>Giveaway Network</small></span
+        ></a
+      >
+      <nav>
+        <a href="./">Claim Center</a
+        ><a class="active" href="staff.html">Staff Controls</a>
+      </nav>
+      <div class="viewer" id="viewer" hidden>
+        <img id="avatar" alt="" /><span
+          ><strong id="viewerName"></strong
+          ><small id="viewerRole"></small></span
+        ><button class="button" id="signOut">Sign out</button>
+      </div>
+    </header>
+    <main>
+      <section class="hero">
+        <p class="eyebrow">Owner + moderator workspace</p>
+        <h1>Giveaway controls</h1>
+        <p>
+          Create a prize, record the Nightbot winner, monitor claim status, and
+          complete fulfillment. Private winner details remain owner-only.
+        </p>
+      </section>
+      <div id="notice" class="notice" hidden></div>
+      <section id="gate" class="gate">
+        <h2>Authorized staff sign-in</h2>
+        <div class="signin-row">
+          <button class="button twitch" data-signin="twitch">
+            Continue with Twitch</button
+          ><button class="button discord" data-signin="discord">
+            Continue with Discord
+          </button>
+        </div>
+      </section>
+      <div id="workspace" hidden>
+        <section class="panel">
+          <h2>Create giveaway</h2>
+          <p class="muted">
+            Create this before opening Nightbot. The prize image is private and
+            will be removed when you mark the giveaway completed.
+          </p>
+          <form id="createForm">
+            <div class="fields">
+              <label
+                >Prize title<input
+                  name="title"
+                  maxlength="160"
+                  required /></label
+              ><label
+                >Prize type<select name="prizeType">
+                  <option value="physical">Physical prize</option>
+                  <option value="digital">Digital prize</option>
+                  <option value="game_key">Game key</option>
+                  <option value="twitch_subscription">
+                    Twitch subscription
+                  </option>
+                  <option value="other">Other</option>
+                </select></label
+              ><label class="full"
+                >Description<textarea
+                  name="description"
+                  maxlength="2000"
+                  rows="3"
+                ></textarea></label
+              ><label class="full"
+                >Prize image <small>optional</small> (JPG, PNG, WEBP, or GIF;
+                max 5 MB)<input
+                  name="image"
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp,image/gif"
+              /></label>
+              <section class="full custom-builder" id="customBuilder" hidden>
+                <div class="custom-builder-head">
+                  <div>
+                    <strong>Winner information</strong
+                    ><small>Add the questions needed for this prize.</small>
+                  </div>
+                  <button class="button" id="addCustomField" type="button">
+                    Add question
+                  </button>
+                </div>
+                <div id="customFields"></div>
+              </section>
+            </div>
+            <button class="button primary" type="submit">
+              Create giveaway
+            </button>
+          </form>
+        </section>
+        <section class="panel">
+          <h2>Giveaways</h2>
+          <div id="cards" class="grid"></div>
+        </section>
+      </div>
+    </main>
+    <footer>THYTOXICGAMER // GIVEAWAY CONTROLS</footer>
+    <script src="staff.js"></script>
+  </body>
+</html>
