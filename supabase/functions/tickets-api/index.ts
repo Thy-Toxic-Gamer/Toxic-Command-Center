@@ -200,12 +200,11 @@ async function ticketDetail(admin: any, staff: any, body: any) {
 async function deleteTicket(admin: any, staff: any, body: any) {
   if (staff.role !== "owner") throw new ApiError("Only the server owner can permanently delete a ticket record.", 403);
   const id = String(body.id ?? "");
-  const confirmation = String(body.confirmation ?? "").trim().toUpperCase();
   const { data: row, error: loadError } = await admin.from("discord_tickets").select("id,ticket_code,status").eq("id", id).eq("guild_id", staff.guildId).maybeSingle();
   if (loadError) throw new ApiError(`Ticket lookup failed (${loadError.code || "database"}).`, 500);
   if (!row) throw new ApiError("That ticket was not found.", 404);
   if (!["closed", "failed"].includes(row.status)) throw new ApiError("Close the Discord ticket before deleting its saved record.", 409);
-  if (confirmation !== `DELETE ${row.ticket_code}`) throw new ApiError(`Type DELETE ${row.ticket_code} to confirm.`);
+  if (body.confirmed !== true) throw new ApiError("Owner confirmation is required.");
   const { error } = await admin.from("discord_tickets").delete().eq("id", row.id).eq("guild_id", staff.guildId);
   if (error) throw new ApiError(`Ticket deletion failed (${error.code || "database"}).`, 500);
   return json({ deleted: true, ticket_code: row.ticket_code });
