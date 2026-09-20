@@ -124,25 +124,60 @@ async function discordBot(path: string) {
   if (!r.ok) throw new Error("Discord staff lookup failed.");
   return await r.json();
 }
-async function postGiveawayLog(g: any, i: Identity) {
+async function postGiveawayLog(
+  g: any,
+  i: Identity,
+  kind: "claim" | "completed" | "receipt" = "receipt",
+) {
   const token = Deno.env.get("DISCORD_BOT_TOKEN");
   if (!token) throw new Error("Discord bot unavailable.");
-  const code = `TTG-GIVE-${String(g.giveaway_number).padStart(6, "0")}`;
-  const response = await fetch(`https://discord.com/api/v10/channels/${GIVEAWAY_LOG_CHANNEL_ID}/messages`, {
-    method: "POST",
-    headers: { Authorization: `Bot ${token}`, "Content-Type": "application/json" },
-    body: JSON.stringify({
-      allowed_mentions: { parse: [] },
-      embeds: [{
-        title: "Giveaway receipt confirmed",
-        description: `**${code}**\n**Prize:** ${g.title}\n**Winner:** ${g.winner_display_name || i.displayName} (@${g.winner_login || i.login})\n**Status:** Winner confirmed the prize was received.\n\nPrivate fulfillment information is intentionally excluded.`,
+  const code = `TTG-GIVE-${String(g.giveaway_number).padStart(6, "0")}`,
+    winner = g.winner_display_name || i.displayName,
+    login = g.winner_login || i.login,
+    messages = {
+      claim: {
+        title: "Giveaway claim submitted",
+        status: "The winner submitted the prize claim.",
+        color: 0xff1493,
+      },
+      completed: {
+        title: "Giveaway completed",
+        status: `Marked completed by ${i.displayName}.`,
         color: 0xb5ff18,
-        timestamp: new Date().toISOString(),
-        footer: { text: "ThyToxicGamer Giveaway Log" },
-      }],
-    }),
-  });
-  if (!response.ok) throw new Error(`Discord giveaway log failed (${response.status}).`);
+      },
+      receipt: {
+        title: "Giveaway receipt confirmed",
+        status: "The winner confirmed the prize was received.",
+        color: 0xb5ff18,
+      },
+    },
+    message = messages[kind];
+  const response = await fetch(
+    `https://discord.com/api/v10/channels/${GIVEAWAY_LOG_CHANNEL_ID}/messages`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bot ${token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        allowed_mentions: { parse: [] },
+        embeds: [{
+          title: message.title,
+          description: `**${code}**\n**Prize:** ${g.title}\n**Winner:** ${winner} (@${login})\n**Status:** ${message.status}\n\nPrivate fulfillment information is intentionally excluded.`,
+          color: message.color,
+          timestamp: new Date().toISOString(),
+          footer: { text: "ThyToxicGamer Giveaway Log" },
+        }],
+      }),
+    },
+  );
+  if (!response.ok) {
+    const detail = await response.text().catch(() => "");
+    throw new Error(
+      `Discord giveaway log failed (${response.status})${detail ? `: ${detail.slice(0, 200)}` : ""}.`,
+    );
+  }
 }
 async function guildStaff(db: any, userId: string) {
   const { data: configs } = await db
@@ -457,6 +492,21 @@ Deno.serve(async (r) => {
           .from("giveaway_claims")
           .upsert(row, { onConflict: "giveaway_id" });
         if (error) throw new ApiError("Your claim could not be saved.", 500);
+        if (g.status === "winner_selected") {
+          try {
+            await postGiveawayLog(g, i, "claim");
+          } catch (logError) {
+            console.error(logError);
+            await event(db, g.id, "giveaway_log_failed", i, {
+              channelId: GIVEAWAY_LOG_CHANNEL_ID,
+              stage: "claim_submitted",
+            });
+            throw new ApiError(
+              "Your claim was saved, but the Discord log could not be posted. Submit it again to retry.",
+              502,
+            );
+          }
+        }
         await db
           .from("giveaways")
           .update({
@@ -571,7 +621,7 @@ Deno.serve(async (r) => {
     if (action === "clear_archives") {
       if (
         role !== "owner" ||
-        body.confirmation !== "CLEAR GIVEAWAY ARCHIVES"
+        body.confirmed !== true
       )
         throw new ApiError("Owner confirmation is required.", 403);
       const { data: archived, error: archiveError } = await db
@@ -658,6 +708,21 @@ Deno.serve(async (r) => {
       return reply(await dashboards(db, i, role));
     }
     if (action === "complete") {
+      if (g.status === "completed")
+        return reply(await dashboards(db, i, role));
+      try {
+        await postGiveawayLog(g, i, "completed");
+      } catch (logError) {
+        console.error(logError);
+        await event(db, g.id, "giveaway_log_failed", i, {
+          channelId: GIVEAWAY_LOG_CHANNEL_ID,
+          stage: "giveaway_completed",
+        });
+        throw new ApiError(
+          "The giveaway was not completed because the Discord log could not be posted. Try again.",
+          502,
+        );
+      }
       if (g.prize_image_path)
         await db.storage.from("giveaway-prizes").remove([g.prize_image_path]);
       await db
@@ -681,7 +746,7 @@ Deno.serve(async (r) => {
       return reply(await dashboards(db, i, role));
     }
     if (action === "delete_claim") {
-      if (role !== "owner" || body.confirmation !== "DELETE PRIVATE CLAIM")
+      if (role !== "owner" || body.confirmed !== true)
         throw new ApiError("Owner confirmation is required.", 403);
       await db.from("giveaway_claims").delete().eq("giveaway_id", g.id);
       await event(db, g.id, "private_claim_deleted", i);
