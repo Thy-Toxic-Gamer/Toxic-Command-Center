@@ -28,6 +28,17 @@
             "'": "&#39;",
           })[c],
       );
+  const PRESET_FIELDS = [
+    { key: "email", label: "Email", kind: "email" },
+    { key: "full_name", label: "Recipient full name", kind: "text" },
+    { key: "address_line1", label: "Address line 1", kind: "text" },
+    { key: "address_line2", label: "Address line 2", kind: "text" },
+    { key: "city", label: "City", kind: "text" },
+    { key: "state_region", label: "State / region", kind: "text" },
+    { key: "postal_code", label: "Postal code", kind: "text" },
+    { key: "country", label: "Country", kind: "text" },
+    { key: "delivery_notes", label: "Delivery notes", kind: "textarea" },
+  ];
   let state = null;
   function provider() {
     const a = sessionStorage.getItem("thy_toxic_appeals_active_provider");
@@ -107,12 +118,10 @@
     const other = q('[name="prizeType"]').value === "other";
     q("#customBuilder").hidden = !other;
   }
-  function addCustomField() {
-    const row = document.createElement("div");
-    row.className = "custom-field";
-    row.innerHTML =
-      '<input type="text" maxlength="100" placeholder="Question or information needed" aria-label="Custom winner question"><label><input type="checkbox"> Required</label><button class="button remove-field" type="button" aria-label="Remove question">×</button>';
-    q("#customFields").append(row);
+  function renderPresetFields() {
+    q("#customFields").innerHTML = PRESET_FIELDS.map((field) =>
+      `<label class="custom-field" data-key="${field.key}" data-label="${field.label}" data-kind="${field.kind}"><span>${field.label}</span><select aria-label="${field.label} requirement"><option value="off">Don't ask</option><option value="optional">Optional</option><option value="required">Required</option></select></label>`
+    ).join("");
   }
   function render(d) {
     state = d;
@@ -150,14 +159,10 @@
       file = f.get("image");
     if (file?.size > 5242880)
       return notice("Prize image must be 5 MB or smaller.", true);
-    const customFields = [
-      ...q("#customFields").querySelectorAll(".custom-field"),
-    ]
-      .map((row) => ({
-        label: row.querySelector('input[type="text"]').value.trim(),
-        required: row.querySelector('input[type="checkbox"]').checked,
-      }))
-      .filter((field) => field.label);
+    const customFields = [...q("#customFields").querySelectorAll(".custom-field")]
+      .map((row) => ({ key: row.dataset.key, label: row.dataset.label, kind: row.dataset.kind, mode: row.querySelector("select").value }))
+      .filter((field) => field.mode !== "off")
+      .map((field) => ({ key: field.key, label: field.label, kind: field.kind, required: field.mode === "required" }));
     if (f.get("prizeType") === "other" && !customFields.length)
       return notice(
         "Add at least one winner-information question for an Other prize.",
@@ -167,7 +172,7 @@
     try {
       render(await api("create_giveaway", f, true));
       e.target.reset();
-      q("#customFields").replaceChildren();
+      renderPresetFields();
       syncCustomBuilder();
       notice("Giveaway created. Open Nightbot when you are ready to draw.");
     } catch (x) {
@@ -175,11 +180,6 @@
     }
   };
   q('[name="prizeType"]').addEventListener("change", syncCustomBuilder);
-  q("#addCustomField").addEventListener("click", addCustomField);
-  q("#customFields").addEventListener("click", (e) => {
-    const button = e.target.closest(".remove-field");
-    if (button) button.closest(".custom-field").remove();
-  });
   q("#cards").addEventListener("submit", async (e) => {
     e.preventDefault();
     const id = e.target.closest("[data-id]").dataset.id,
@@ -234,6 +234,7 @@
       notice(x.message, true);
     }
   });
+  renderPresetFields();
   syncCustomBuilder();
   load();
 })();
