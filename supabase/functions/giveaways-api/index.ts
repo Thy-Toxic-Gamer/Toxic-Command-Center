@@ -284,6 +284,7 @@ async function dashboards(db: any, i: Identity, role: string) {
           description: g.description,
           prizeType: g.prize_type,
           status: g.status,
+          completedAt: g.completed_at,
           winnerLogin: g.winner_login,
           winnerDisplayName: g.winner_display_name,
           claimSubmitted: !!c,
@@ -565,6 +566,39 @@ Deno.serve(async (r) => {
         throw new ApiError("Giveaway could not be created.", 500);
       }
       await event(db, id, "giveaway_created", i, { title });
+      return reply(await dashboards(db, i, role));
+    }
+    if (action === "clear_archives") {
+      if (
+        role !== "owner" ||
+        body.confirmation !== "CLEAR GIVEAWAY ARCHIVES"
+      )
+        throw new ApiError("Owner confirmation is required.", 403);
+      const { data: archived, error: archiveError } = await db
+        .from("giveaways")
+        .select("id,prize_image_path")
+        .eq("status", "completed");
+      if (archiveError)
+        throw new ApiError("Giveaway archives could not be loaded.", 500);
+      const imagePaths = (archived || [])
+        .map((item: any) => item.prize_image_path)
+        .filter(Boolean);
+      if (imagePaths.length) {
+        const { error: storageError } = await db.storage
+          .from("giveaway-prizes")
+          .remove(imagePaths);
+        if (storageError)
+          throw new ApiError("Archived prize images could not be removed.", 500);
+      }
+      const { error: deleteError } = await db
+        .from("giveaways")
+        .delete()
+        .eq("status", "completed");
+      if (deleteError)
+        throw new ApiError("Giveaway archives could not be cleared.", 500);
+      await event(db, null, "giveaway_archives_cleared", i, {
+        count: (archived || []).length,
+      });
       return reply(await dashboards(db, i, role));
     }
     const { data: g } = await db
