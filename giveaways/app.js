@@ -87,7 +87,7 @@
   function card(g) {
     const claimed = !!g.claimSubmitted,
       closed = ["completed", "closed"].includes(g.status);
-    return `<article class="card" data-id="${esc(g.id)}">${g.imageUrl ? `<img class="prize" src="${esc(g.imageUrl)}" alt="${esc(g.title)}">` : ""}<span class="status">${esc(g.status.replaceAll("_", " "))}</span><h2>${esc(g.title)}</h2><p class="muted">${esc(g.description)}</p>${claimed ? `<div class="safe">${g.prizeType === "twitch_subscription" ? "Your Twitch account is verified. No additional information is needed." : "Your claim was received."}${g.trackingNumber ? `<br><strong>${esc(g.carrier || "Tracking")}:</strong> ${esc(g.trackingNumber)}` : ""}</div>${g.trackingNumber && !g.winnerSavedTrackingAt ? '<button class="button primary saveTracking">I saved my tracking number</button>' : ""}${g.status === "shipped" && !g.prizeReceivedAt ? '<button class="button received">I received my prize</button>' : ""}${g.prizeReceivedAt ? '<div class="safe">Prize receipt confirmed. The owner has been notified.</div>' : ""}` : closed ? '<div class="safe">Fulfillment is complete and the private claim information has been removed.</div>' : `<form class="claimForm"><div class="fields">${claimFields(g)}</div><button class="button primary" type="submit">Submit private claim</button></form>`}</article>`;
+    return `<article class="card" data-id="${esc(g.id)}">${g.imageUrl ? `<img class="prize" src="${esc(g.imageUrl)}" alt="${esc(g.title)}">` : ""}<span class="status">${esc(g.status.replaceAll("_", " "))}</span><h2>${esc(g.title)}</h2><p class="muted">${esc(g.description)}</p>${claimed ? `<div class="safe">${g.prizeType === "twitch_subscription" ? "Your Twitch account is verified. No additional information is needed." : "Your claim was received."}${g.trackingNumber ? `<br><strong>${esc(g.carrier || "Tracking")}:</strong> ${esc(g.trackingNumber)}` : ""}</div>${g.trackingNumber && !g.winnerSavedTrackingAt ? '<button class="button primary saveTracking">I saved my tracking number</button>' : ""}${g.prizeType === "physical" && g.status === "shipped" && !g.prizeReceivedAt ? '<button class="button received">I Received My Package</button>' : ""}${g.prizeReceivedAt ? '<div class="safe">Prize receipt confirmed. The owner has been notified.</div>' : ""}` : closed ? '<div class="safe">Fulfillment is complete and the private claim information has been removed.</div>' : `<form class="claimForm"><div class="fields">${claimFields(g)}</div><button class="button primary" type="submit">Submit private claim</button></form>`}</article>`;
   }
   async function load() {
     if (!sessionStorage.getItem(TOKEN)) return;
@@ -156,9 +156,10 @@
         b.disabled = true;
         await api("prize_received", { id });
         await load();
-        notice("Prize receipt confirmed. The owner has been notified in Discord.");
+        notice("Package receipt confirmed. The giveaway is completed and the owner has been notified in Discord.");
       }
     } catch (x) {
+      if (b) b.disabled = false;
       notice(x.message, true);
     }
   });
