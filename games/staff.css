@@ -88,3 +88,12 @@
   .request-actions .status-field, .request-actions .note-field, .request-actions .game-change-field, .pending-game-change, .workflow-state, .workflow-primary, .request-actions .delete-archive { grid-column: auto; }
   .staff-request-summary { flex-direction: column; }
 }
+
+.confirm-delete,
+.confirm-delete:hover,
+.confirm-delete:focus-visible {
+  background: #ff1493 !important;
+  border-color: #ff1493 !important;
+  color: #ffffff !important;
+  box-shadow: 0 0 0 2px rgba(255, 20, 147, 0.22), 0 0 18px rgba(255, 20, 147, 0.42);
+}
