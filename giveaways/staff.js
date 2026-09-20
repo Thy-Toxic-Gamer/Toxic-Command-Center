@@ -1,5 +1,25 @@
 (() => {
   "use strict";
+  function resetDeleteButton(button) {
+    if (!button) return;
+    button.classList.remove("confirm-delete");
+    button.dataset.confirmDelete = "false";
+    if (button.dataset.deleteOriginalHtml)
+      button.innerHTML = button.dataset.deleteOriginalHtml;
+  }
+  function armDeleteButton(button) {
+    if (button.dataset.confirmDelete === "true") return true;
+    button.dataset.confirmDelete = "true";
+    button.dataset.deleteOriginalHtml = button.innerHTML;
+    button.classList.add("confirm-delete");
+    button.textContent = "Confirm Delete";
+    window.setTimeout(() => {
+      if (button.isConnected && button.dataset.confirmDelete === "true")
+        resetDeleteButton(button);
+    }, 8000);
+    return false;
+  }
+
   const API =
       "https://ubldjtsjfudogtgxakiq.supabase.co/functions/v1/giveaways-api",
     KEY = "sb_publishable_Fhl-Co0p5QNJKJ7ou2Te2Q_FD8BIywM",
@@ -229,40 +249,42 @@
         render(await api("complete", { id }));
       if (b.classList.contains("close") && confirm("Close this giveaway?"))
         render(await api("close", { id }));
-      if (
-        b.classList.contains("deleteClaim") &&
-        prompt(
-          "Type DELETE PRIVATE CLAIM to permanently erase winner fulfillment details.",
-        ) === "DELETE PRIVATE CLAIM"
-      )
+      if (b.classList.contains("deleteClaim")) {
+        if (!armDeleteButton(b)) return;
         render(
           await api("delete_claim", {
             id,
-            confirmation: "DELETE PRIVATE CLAIM",
+            confirmed: true,
           }),
         );
+      }
       notice("Giveaway updated.");
     } catch (x) {
+      if (b?.classList.contains("deleteClaim")) {
+        b.disabled = false;
+        resetDeleteButton(b);
+      }
       notice(x.message, true);
     }
   }
   q("#cards").addEventListener("click", handleCardClick);
   q("#archives").addEventListener("click", handleCardClick);
   q("#clearArchives").onclick = async () => {
-    if (
-      prompt(
-        "This permanently deletes every completed giveaway and its private claim data. Type CLEAR GIVEAWAY ARCHIVES to continue.",
-      ) !== "CLEAR GIVEAWAY ARCHIVES"
-    )
-      return;
+    const button = q("#clearArchives");
+    if (!armDeleteButton(button)) return;
+    button.disabled = true;
     try {
       render(
         await api("clear_archives", {
-          confirmation: "CLEAR GIVEAWAY ARCHIVES",
+          confirmed: true,
         }),
       );
+      button.disabled = false;
+      resetDeleteButton(button);
       notice("Giveaway archives cleared.");
     } catch (x) {
+      button.disabled = false;
+      resetDeleteButton(button);
       notice(x.message, true);
     }
   };
