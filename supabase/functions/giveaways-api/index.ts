@@ -124,12 +124,47 @@ async function discordBot(path: string) {
   if (!r.ok) throw new Error("Discord staff lookup failed.");
   return await r.json();
 }
-async function postGiveawayCompletionLog(g: any, i: Identity) {
+async function postGiveawayCompletionLog(
+  db: any,
+  g: any,
+  i: Identity,
+  trigger: "staff_completed" | "package_received",
+) {
   const token = Deno.env.get("DISCORD_BOT_TOKEN");
   if (!token) throw new Error("Discord bot unavailable.");
+  const { data: events } = await db
+    .from("giveaway_events")
+    .select("event_type,actor_name,created_at")
+    .eq("giveaway_id", g.id)
+    .order("created_at", { ascending: true })
+    .limit(20);
+  const labels: Record<string, string> = {
+      giveaway_created: "Giveaway created",
+      winner_selected: "Winner selected",
+      claim_submitted: "Private claim submitted",
+      tracking_updated: "Tracking added",
+      tracking_saved: "Winner saved tracking",
+      prize_received: "Package received",
+      giveaway_completed: "Giveaway completed",
+    },
+    transcript = (events || [])
+      .filter((item: any) => labels[item.event_type])
+      .map((item: any) => {
+        const stamp = Math.floor(new Date(item.created_at).getTime() / 1000);
+        return `• <t:${stamp}:f> — ${labels[item.event_type]} — ${item.actor_name || "System"}`;
+      }),
+    now = Math.floor(Date.now() / 1000);
+  transcript.push(
+    trigger === "package_received"
+      ? `• <t:${now}:f> — Package received and giveaway completed — ${i.displayName}`
+      : `• <t:${now}:f> — Giveaway completed — ${i.displayName}`,
+  );
   const code = `TTG-GIVE-${String(g.giveaway_number).padStart(6, "0")}`,
     winner = g.winner_display_name || "Not selected",
-    login = g.winner_login ? ` (@${g.winner_login})` : "";
+    login = g.winner_login ? ` (@${g.winner_login})` : "",
+    status = trigger === "package_received"
+      ? "The winner confirmed their physical package was received."
+      : `Marked completed by ${i.displayName}.`;
   const response = await fetch(
     `https://discord.com/api/v10/channels/${GIVEAWAY_LOG_CHANNEL_ID}/messages`,
     {
@@ -142,7 +177,7 @@ async function postGiveawayCompletionLog(g: any, i: Identity) {
         allowed_mentions: { parse: [] },
         embeds: [{
           title: "Giveaway completed",
-          description: `**${code}**\n**Prize:** ${g.title}\n**Winner:** ${winner}${login}\n**Status:** Marked completed by ${i.displayName}.\n\nPrivate fulfillment information is intentionally excluded.`,
+          description: `**${code}**\n**Prize:** ${g.title}\n**Winner:** ${winner}${login}\n**Status:** ${status}\n\n**Process transcript**\n${transcript.join("\n")}\n\nPrivate fulfillment information is intentionally excluded.`,
           color: 0xb5ff18,
           timestamp: new Date().toISOString(),
           footer: { text: "ThyToxicGamer Giveaway Log" },
@@ -491,25 +526,62 @@ Deno.serve(async (r) => {
         await event(db, g.id, "tracking_saved", i);
         return reply({ ok: true });
       }
+      if (g.prize_type !== "physical")
+        throw new ApiError(
+          "Package receipt confirmation is only available for physical prizes.",
+        );
       const { data: currentClaim } = await db
         .from("giveaway_claims")
-        .select("prize_received_at")
+        .select("prize_received_at,receipt_log_sent_at")
         .eq("giveaway_id", g.id)
         .maybeSingle();
       if (!currentClaim)
         throw new ApiError("The claim record could not be found.", 404);
-      if (currentClaim.prize_received_at)
+      if (
+        currentClaim.prize_received_at &&
+        currentClaim.receipt_log_sent_at
+      )
         return reply({ ok: true, alreadyConfirmed: true });
+      try {
+        await postGiveawayCompletionLog(db, g, i, "package_received");
+      } catch (logError) {
+        console.error(logError);
+        await event(db, g.id, "giveaway_log_failed", i, {
+          channelId: GIVEAWAY_LOG_CHANNEL_ID,
+          stage: "package_received",
+        });
+        throw new ApiError(
+          "The package confirmation could not be posted to Discord. Try again.",
+          502,
+        );
+      }
       const confirmedAt = new Date().toISOString();
       await db
         .from("giveaway_claims")
         .update({
           prize_received_at: confirmedAt,
+          receipt_log_sent_at: confirmedAt,
           updated_at: confirmedAt,
         })
         .eq("giveaway_id", g.id);
+      if (g.prize_image_path)
+        await db.storage
+          .from("giveaway-prizes")
+          .remove([g.prize_image_path]);
+      await db
+        .from("giveaways")
+        .update({
+          status: "completed",
+          completed_at: confirmedAt,
+          prize_image_path: null,
+          updated_at: confirmedAt,
+        })
+        .eq("id", g.id);
       await event(db, g.id, "prize_received", i);
-      return reply({ ok: true });
+      await event(db, g.id, "giveaway_completed", i, {
+        trigger: "winner_package_received",
+      });
+      return reply({ ok: true, completed: true });
     }
     const s = await staff(db, i);
     if (!s)
@@ -673,10 +745,14 @@ Deno.serve(async (r) => {
       return reply(await dashboards(db, i, role));
     }
     if (action === "complete") {
+      if (g.prize_type === "physical")
+        throw new ApiError(
+          "Physical giveaways complete when the winner confirms package receipt.",
+        );
       if (g.status === "completed")
         return reply(await dashboards(db, i, role));
       try {
-        await postGiveawayCompletionLog(g, i);
+        await postGiveawayCompletionLog(db, g, i, "staff_completed");
       } catch (logError) {
         console.error(logError);
         await event(db, g.id, "giveaway_log_failed", i, {
