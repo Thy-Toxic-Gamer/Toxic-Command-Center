@@ -1,4 +1,24 @@
 "use strict";
+  function resetDeleteButton(button) {
+    if (!button) return;
+    button.classList.remove("confirm-delete");
+    button.dataset.confirmDelete = "false";
+    if (button.dataset.deleteOriginalHtml)
+      button.innerHTML = button.dataset.deleteOriginalHtml;
+  }
+  function armDeleteButton(button) {
+    if (button.dataset.confirmDelete === "true") return true;
+    button.dataset.confirmDelete = "true";
+    button.dataset.deleteOriginalHtml = button.innerHTML;
+    button.classList.add("confirm-delete");
+    button.textContent = "Confirm Delete";
+    window.setTimeout(() => {
+      if (button.isConnected && button.dataset.confirmDelete === "true")
+        resetDeleteButton(button);
+    }, 8000);
+    return false;
+  }
+
 
 const API_URL = "https://ubldjtsjfudogtgxakiq.supabase.co/functions/v1/tickets-api";
 const API_KEY = "sb_publishable_Fhl-Co0p5QNJKJ7ou2Te2Q_FD8BIywM";
@@ -183,11 +203,10 @@ function renderDetail(ticket) {
     const actions = document.createElement("div"); actions.className = "record-actions";
     const remove = document.createElement("button"); remove.type = "button"; remove.className = "danger-button"; remove.textContent = "Delete record permanently";
     remove.addEventListener("click", async () => {
-      const confirmation = prompt(`Type DELETE ${ticket.ticket_code} to permanently delete this record.`);
-      if (!confirmation) return;
+      if (!armDeleteButton(remove)) return;
       remove.disabled = true;
-      try { await api("delete", { id: ticket.id, confirmation }); notice("success", `${ticket.ticket_code} was permanently deleted.`); state.selected = null; await loadTickets(); }
-      catch (error) { notice("error", error.message); remove.disabled = false; }
+      try { await api("delete", { id: ticket.id, confirmed: true }); notice("success", `${ticket.ticket_code} was permanently deleted.`); state.selected = null; await loadTickets(); }
+      catch (error) { notice("error", error.message); remove.disabled = false; resetDeleteButton(remove); }
     });
     actions.append(remove); root.append(actions);
   }
