@@ -17,3 +17,12 @@ main{width:min(1280px,100%);margin:0 auto;padding:36px clamp(18px,4vw,54px) 80px
 footer{min-height:66px;display:flex;align-items:center;justify-content:space-between;gap:20px;padding:18px clamp(18px,4vw,54px);border-top:1px solid rgba(181,255,24,.28);background:#090c0a;color:#7f8b81;font-size:.68rem;font-weight:800;letter-spacing:.13em}footer a{color:var(--toxic);text-decoration:none;text-transform:uppercase}
 @media(max-width:760px){.topbar{flex-wrap:wrap;gap:10px}.topbar nav{order:3;width:100%;overflow:auto}.account-actions{margin-left:auto}.hero{min-height:390px;background-position:66% center}.hero-copy{width:min(520px,78%)}form,.duration-grid{grid-template-columns:1fr}.danger-zone,footer{align-items:flex-start;flex-direction:column}.poll-grid{grid-template-columns:1fr}}
 @media(max-width:520px){.topbar{padding-inline:14px}.brand small{display:none}.viewer span{display:none}main{padding-inline:14px}.hero{min-height:430px;background-position:69% center}.hero:before{content:"";position:absolute;inset:0;background:rgba(4,7,5,.28)}.hero-copy{width:100%}.hero,.staff-hero,.create-panel{padding:22px}.custom-duration{grid-template-columns:1fr}.custom-duration small{grid-column:1}.poll-card{padding:18px}.poll-option{border-radius:18px}}
+
+.confirm-delete,
+.confirm-delete:hover,
+.confirm-delete:focus-visible {
+  background: #ff1493 !important;
+  border-color: #ff1493 !important;
+  color: #ffffff !important;
+  box-shadow: 0 0 0 2px rgba(255, 20, 147, 0.22), 0 0 18px rgba(255, 20, 147, 0.42);
+}
