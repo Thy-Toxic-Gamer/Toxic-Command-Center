@@ -244,9 +244,11 @@
     try {
       if (
         b.classList.contains("complete") &&
-        confirm("Mark completed and move this giveaway into the archives?")
-      )
+        confirm("Mark completed, move this giveaway into the archives, and post one Discord log?")
+      ) {
+        b.disabled = true;
         render(await api("complete", { id }));
+      }
       if (b.classList.contains("close") && confirm("Close this giveaway?"))
         render(await api("close", { id }));
       if (b.classList.contains("deleteClaim")) {
@@ -260,6 +262,7 @@
       }
       notice("Giveaway updated.");
     } catch (x) {
+      if (b?.classList.contains("complete")) b.disabled = false;
       if (b?.classList.contains("deleteClaim")) {
         b.disabled = false;
         resetDeleteButton(b);
