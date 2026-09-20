@@ -848,3 +848,12 @@ footer {
   .case-meta div { padding: 13px 18px; border-right: 0; border-bottom: 1px solid var(--line); }
   .case-meta div:last-child { border-bottom: 0; }
 }
+
+.confirm-delete,
+.confirm-delete:hover,
+.confirm-delete:focus-visible {
+  background: #ff1493 !important;
+  border-color: #ff1493 !important;
+  color: #ffffff !important;
+  box-shadow: 0 0 0 2px rgba(255, 20, 147, 0.22), 0 0 18px rgba(255, 20, 147, 0.42);
+}
