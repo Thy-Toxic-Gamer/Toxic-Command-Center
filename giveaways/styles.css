@@ -264,13 +264,6 @@ label.full {
   border-radius: 12px;
   background: #090c0a;
 }
-.custom-builder-head,
-.custom-field {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-}
 .custom-builder-head strong,
 .custom-builder-head small {
   display: block;
@@ -279,27 +272,28 @@ label.full {
   margin-top: 4px;
   color: var(--muted);
 }
+.preset-fields {
+  display: grid;
+  gap: 9px;
+  margin-top: 14px;
+}
 .custom-field {
-  margin-top: 10px;
-}
-.custom-field input[type="text"] {
-  flex: 1;
-}
-.custom-field label {
-  display: flex;
-  grid: initial;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(150px, 210px);
   align-items: center;
-  gap: 7px;
-  white-space: nowrap;
+  gap: 12px;
+  padding: 10px 12px;
+  border: 1px solid #29352b;
+  border-radius: 10px;
+  background: #101511;
 }
-.custom-field input[type="checkbox"] {
-  width: auto;
+.custom-field span {
+  font-weight: 800;
 }
-.custom-field .remove-field {
-  min-width: 38px;
-  padding: 10px;
-  color: #ffd5e7;
-  border-color: var(--pink);
+@media (max-width: 560px) {
+  .custom-field {
+    grid-template-columns: 1fr;
+  }
 }
 input,
 textarea,
