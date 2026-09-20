@@ -124,34 +124,12 @@ async function discordBot(path: string) {
   if (!r.ok) throw new Error("Discord staff lookup failed.");
   return await r.json();
 }
-async function postGiveawayLog(
-  g: any,
-  i: Identity,
-  kind: "claim" | "completed" | "receipt" = "receipt",
-) {
+async function postGiveawayCompletionLog(g: any, i: Identity) {
   const token = Deno.env.get("DISCORD_BOT_TOKEN");
   if (!token) throw new Error("Discord bot unavailable.");
   const code = `TTG-GIVE-${String(g.giveaway_number).padStart(6, "0")}`,
-    winner = g.winner_display_name || i.displayName,
-    login = g.winner_login || i.login,
-    messages = {
-      claim: {
-        title: "Giveaway claim submitted",
-        status: "The winner submitted the prize claim.",
-        color: 0xff1493,
-      },
-      completed: {
-        title: "Giveaway completed",
-        status: `Marked completed by ${i.displayName}.`,
-        color: 0xb5ff18,
-      },
-      receipt: {
-        title: "Giveaway receipt confirmed",
-        status: "The winner confirmed the prize was received.",
-        color: 0xb5ff18,
-      },
-    },
-    message = messages[kind];
+    winner = g.winner_display_name || "Not selected",
+    login = g.winner_login ? ` (@${g.winner_login})` : "";
   const response = await fetch(
     `https://discord.com/api/v10/channels/${GIVEAWAY_LOG_CHANNEL_ID}/messages`,
     {
@@ -163,9 +141,9 @@ async function postGiveawayLog(
       body: JSON.stringify({
         allowed_mentions: { parse: [] },
         embeds: [{
-          title: message.title,
-          description: `**${code}**\n**Prize:** ${g.title}\n**Winner:** ${winner} (@${login})\n**Status:** ${message.status}\n\nPrivate fulfillment information is intentionally excluded.`,
-          color: message.color,
+          title: "Giveaway completed",
+          description: `**${code}**\n**Prize:** ${g.title}\n**Winner:** ${winner}${login}\n**Status:** Marked completed by ${i.displayName}.\n\nPrivate fulfillment information is intentionally excluded.`,
+          color: 0xb5ff18,
           timestamp: new Date().toISOString(),
           footer: { text: "ThyToxicGamer Giveaway Log" },
         }],
@@ -492,21 +470,6 @@ Deno.serve(async (r) => {
           .from("giveaway_claims")
           .upsert(row, { onConflict: "giveaway_id" });
         if (error) throw new ApiError("Your claim could not be saved.", 500);
-        if (g.status === "winner_selected") {
-          try {
-            await postGiveawayLog(g, i, "claim");
-          } catch (logError) {
-            console.error(logError);
-            await event(db, g.id, "giveaway_log_failed", i, {
-              channelId: GIVEAWAY_LOG_CHANNEL_ID,
-              stage: "claim_submitted",
-            });
-            throw new ApiError(
-              "Your claim was saved, but the Discord log could not be posted. Submit it again to retry.",
-              502,
-            );
-          }
-        }
         await db
           .from("giveaways")
           .update({
@@ -528,22 +491,24 @@ Deno.serve(async (r) => {
         await event(db, g.id, "tracking_saved", i);
         return reply({ ok: true });
       }
-      const { data: currentClaim } = await db.from("giveaway_claims").select("prize_received_at,receipt_log_sent_at").eq("giveaway_id", g.id).maybeSingle();
-      if (!currentClaim) throw new ApiError("The claim record could not be found.", 404);
-      if (currentClaim.prize_received_at && currentClaim.receipt_log_sent_at) return reply({ ok: true, alreadyConfirmed: true });
-      const confirmedAt = currentClaim.prize_received_at || new Date().toISOString();
-      if (!currentClaim.prize_received_at) {
-        await db.from("giveaway_claims").update({ prize_received_at: confirmedAt, updated_at: confirmedAt }).eq("giveaway_id", g.id);
-        await event(db, g.id, "prize_received", i);
-      }
-      try {
-        await postGiveawayLog(g, i);
-        await db.from("giveaway_claims").update({ receipt_log_sent_at: new Date().toISOString(), updated_at: new Date().toISOString() }).eq("giveaway_id", g.id);
-      } catch (logError) {
-        console.error(logError);
-        await event(db, g.id, "giveaway_log_failed", i, { channelId: GIVEAWAY_LOG_CHANNEL_ID });
-        throw new ApiError("Your receipt was saved, but the Discord log could not be posted. Press the button again to retry the log.", 502);
-      }
+      const { data: currentClaim } = await db
+        .from("giveaway_claims")
+        .select("prize_received_at")
+        .eq("giveaway_id", g.id)
+        .maybeSingle();
+      if (!currentClaim)
+        throw new ApiError("The claim record could not be found.", 404);
+      if (currentClaim.prize_received_at)
+        return reply({ ok: true, alreadyConfirmed: true });
+      const confirmedAt = new Date().toISOString();
+      await db
+        .from("giveaway_claims")
+        .update({
+          prize_received_at: confirmedAt,
+          updated_at: confirmedAt,
+        })
+        .eq("giveaway_id", g.id);
+      await event(db, g.id, "prize_received", i);
       return reply({ ok: true });
     }
     const s = await staff(db, i);
@@ -711,7 +676,7 @@ Deno.serve(async (r) => {
       if (g.status === "completed")
         return reply(await dashboards(db, i, role));
       try {
-        await postGiveawayLog(g, i, "completed");
+        await postGiveawayCompletionLog(g, i);
       } catch (logError) {
         console.error(logError);
         await event(db, g.id, "giveaway_log_failed", i, {
