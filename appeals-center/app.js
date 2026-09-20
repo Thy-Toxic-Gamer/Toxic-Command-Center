@@ -1,4 +1,24 @@
 "use strict";
+  function resetDeleteButton(button) {
+    if (!button) return;
+    button.classList.remove("confirm-delete");
+    button.dataset.confirmDelete = "false";
+    if (button.dataset.deleteOriginalHtml)
+      button.innerHTML = button.dataset.deleteOriginalHtml;
+  }
+  function armDeleteButton(button) {
+    if (button.dataset.confirmDelete === "true") return true;
+    button.dataset.confirmDelete = "true";
+    button.dataset.deleteOriginalHtml = button.innerHTML;
+    button.classList.add("confirm-delete");
+    button.textContent = "Confirm Delete";
+    window.setTimeout(() => {
+      if (button.isConnected && button.dataset.confirmDelete === "true")
+        resetDeleteButton(button);
+    }, 8000);
+    return false;
+  }
+
 
 const API_URL = "https://ubldjtsjfudogtgxakiq.supabase.co/functions/v1/appeals-api";
 const API_KEY = "sb_publishable_Fhl-Co0p5QNJKJ7ou2Te2Q_FD8BIywM";
@@ -531,14 +551,14 @@ function renderCaseReview() {
   if (appState.staff?.role === "owner") {
     const remove = document.createElement("button"); remove.className = "button button--danger"; remove.type = "button"; remove.innerHTML = '<i data-lucide="trash-2"></i>Delete permanently';
     remove.addEventListener("click", async () => {
-      if (!window.confirm(`Permanently delete case #${item.case_number} and its complete event history? This cannot be undone.`)) return;
+      if (!armDeleteButton(remove)) return;
       remove.disabled = true; save.disabled = true; remove.textContent = "Deleting…"; staffNotice("error", "");
       try {
         const data = await api("delete_case", { id: item.id, source: item.source });
         appState.cases = appState.cases.filter((entry) => entry.id !== item.id); appState.selected = null;
         byId("active-count").textContent = String(appState.cases.filter((entry) => OPEN_STATUSES.has(entry.status)).length);
         renderStaffQueue(); renderCaseReview(); staffNotice("success", `Case #${data.case.case_number} was permanently deleted.`);
-      } catch (error) { staffNotice("error", error.message); remove.disabled = false; save.disabled = false; remove.innerHTML = '<i data-lucide="trash-2"></i>Delete permanently'; }
+      } catch (error) { staffNotice("error", error.message); remove.disabled = false; save.disabled = false; resetDeleteButton(remove); }
     });
     actions.append(remove);
   }
