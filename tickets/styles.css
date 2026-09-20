@@ -16,3 +16,12 @@ main{width:min(1280px,100%);margin:0 auto;padding:36px clamp(18px,4vw,54px) 80px
 @media(max-width:980px){.staff-hero{align-items:flex-start;flex-direction:column}.staff-session{width:100%}.ticket-workspace{grid-template-columns:1fr}.ticket-queue,.ticket-record{min-height:auto}.ticket-record-list{max-height:420px}}
 @media(max-width:680px){.topbar{align-items:flex-start;flex-direction:column}.topbar nav{width:100%;overflow:auto}.staff-hero{padding:24px}.record-meta{grid-template-columns:1fr 1fr}.transcript-message header{align-items:flex-start;flex-direction:column}.ticket-workspace{gap:12px}.ticket-queue,.ticket-record{padding:16px}}
 @media(max-width:460px){.record-meta{grid-template-columns:1fr}.staff-session .primary,.staff-session .secondary-button{width:100%}}
+
+.confirm-delete,
+.confirm-delete:hover,
+.confirm-delete:focus-visible {
+  background: #ff1493 !important;
+  border-color: #ff1493 !important;
+  color: #ffffff !important;
+  box-shadow: 0 0 0 2px rgba(255, 20, 147, 0.22), 0 0 18px rgba(255, 20, 147, 0.42);
+}
