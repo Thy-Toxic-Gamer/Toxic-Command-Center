@@ -40,6 +40,7 @@ create table if not exists public.giveaway_claims (
   tracking_added_at timestamptz,
   winner_saved_tracking_at timestamptz,
   prize_received_at timestamptz,
+  receipt_log_sent_at timestamptz,
   updated_at timestamptz not null default now()
 );
 
