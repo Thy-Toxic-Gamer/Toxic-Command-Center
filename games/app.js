@@ -465,13 +465,7 @@
             <span>${escapeHtml(game.access)}</span>
           </div>
           ${game.storeUrl ? `<a class="store-link" href="${escapeHtml(game.storeUrl)}" target="_blank" rel="noopener noreferrer">PlayStation Store</a>` : ""}
-          ${game.requestable === false
-            ? '<button class="request-button unavailable" type="button" disabled>Requests unavailable</button>'
-            : !availabilityState.open
-              ? changeEligible
-                ? `<button class="request-button change-game-button" data-change-id="${escapeHtml(game.id)}">${viewer.isOwner ? "Change request to this game" : "Use one game change"}</button>`
-                : `<button class="request-button unavailable" type="button" disabled>${availabilityState.mode === "loading" ? "Checking availability" : "Requests closed"}</button>`
-            : `<button class="request-button" data-request-id="${escapeHtml(game.id)}">Request this game</button>`}
+
         </div>
       </article>`;
     }).join("");
