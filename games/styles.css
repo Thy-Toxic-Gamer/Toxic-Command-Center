@@ -290,3 +290,15 @@ h1 { margin: 0; font-size: clamp(2.25rem, 5vw, 4.6rem); letter-spacing: -.045em;
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { scroll-behavior: auto !important; transition-duration: .01ms !important; }
 }
+
+/* Public request intake is paused; keep the catalog visible and preserve staff tools/data. */
+#requestStatus,
+#publicSchedule,
+#viewerRequestPanel,
+#requestDialog,
+#twitchSignIn,
+#viewerAccount,
+.request-button,
+.change-game-button {
+  display: none !important;
+}
