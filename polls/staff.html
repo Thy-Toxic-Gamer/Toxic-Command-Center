@@ -3,60 +3,13 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="theme-color" content="#090b0a">
-  <meta name="description" content="Authorized ThyToxicGamer poll controls.">
-  <title>Poll Controls | ThyToxicGamer</title>
-  <link rel="icon" type="image/png" href="../tab-icon.png">
-  <link rel="stylesheet" href="styles.css?v=20260920-4">
+  <meta name="robots" content="noindex">
+  <meta http-equiv="refresh" content="0; url=https://discord.gg/SSwDcXHq57">
+  <link rel="canonical" href="https://discord.gg/SSwDcXHq57">
+  <title>Discord Polls | ThyToxicGamer</title>
+  <script>window.location.replace("https://discord.gg/SSwDcXHq57");</script>
 </head>
-<body class="staff-page">
-  <header class="topbar">
-    <a class="brand" href="../"><img src="../tab-icon.png" alt=""><span><strong>ThyToxicGamer</strong><small>Command Network</small></span></a>
-    <nav><a href="./">Public polls</a><a class="active" href="staff.html" aria-current="page">Staff controls</a></nav>
-    <div class="viewer" id="staffAccount" hidden><img id="staffAvatar" alt=""><span><strong id="staffName"></strong><small id="staffRole"></small></span><button id="staffSignOut" type="button">Sign out</button></div>
-  </header>
-
-  <main>
-    <section class="staff-hero"><a class="return" href="./">← Public Poll Center</a><p class="eyebrow">Authorized workspace</p><h1>Poll Controls</h1><p>Create official polls, watch results, and close voting from one place.</p></section>
-    <div class="notice" id="staffNotice" role="status" hidden></div>
-
-    <section class="staff-gate" id="staffGate">
-      <p class="eyebrow">Identity required</p><h2>Staff sign-in</h2><p>Use an authorized Twitch or Discord account.</p>
-      <div><button class="twitch-button" data-staff-signin="twitch" type="button">Continue with Twitch</button><button class="discord-button" data-staff-signin="discord" type="button">Continue with Discord</button></div>
-      <p class="gate-error" id="staffGateError" hidden></p>
-    </section>
-
-    <div id="staffWorkspace" hidden>
-      <section class="create-panel">
-        <div class="section-head"><div><p class="eyebrow">New community question</p><h2>Create a poll</h2></div><span>Posts to Discord automatically</span></div>
-        <form id="createPollForm">
-          <label><span>Question</span><input id="pollQuestion" maxlength="240" required placeholder="What should we vote on?"></label>
-          <label><span>Description <small>optional</small></span><textarea id="pollDescription" maxlength="1000" rows="3" placeholder="Add context or rules for this vote."></textarea></label>
-          <div class="choice-editor"><div class="choice-head"><strong>Choices</strong><button id="addChoice" type="button">+ Add choice</button></div><div id="choiceInputs"></div></div>
-          <div class="duration-grid">
-            <label><span>Voting time</span><select id="pollDuration"><option value="60">1 hour</option><option value="15">15 minutes</option><option value="30">30 minutes</option><option value="90">1.5 hours</option><option value="180">3 hours</option><option value="360">6 hours</option><option value="720">12 hours</option><option value="1440">1 day</option><option value="4320">3 days</option><option value="10080">7 days</option><option value="custom">Other — enter a time</option><option value="0">No automatic close</option></select></label>
-            <div class="custom-duration" id="customDuration" hidden>
-              <label><span>Custom time</span><input id="pollCustomDuration" type="number" min="5" max="10080" step="1" inputmode="numeric" placeholder="45"></label>
-              <label><span>Unit</span><select id="pollCustomUnit"><option value="1">Minutes</option><option value="60">Hours</option><option value="1440">Days</option></select></label>
-              <small>Custom polls may run from 5 minutes to 7 days.</small>
-            </div>
-          </div>
-          <button class="primary" type="submit">Create poll and post to Discord</button>
-        </form>
-      </section>
-
-      <section class="poll-section">
-        <div class="section-head"><div><p class="eyebrow">Live management</p><h2>Open polls</h2></div></div>
-        <div class="poll-grid" id="staffOpenPolls"></div>
-      </section>
-      <section class="poll-section history">
-        <div class="section-head"><div><p class="eyebrow">Completed</p><h2>Closed polls</h2></div></div>
-        <div class="poll-grid" id="staffClosedPolls"></div>
-      </section>
-      <section class="danger-zone" id="dangerZone" hidden><div><p class="eyebrow">Owner control</p><h2>Clear the Poll Center</h2><p>Archives every open and closed poll. Discord keeps the final records.</p></div><button id="clearPolls" type="button">Clear all polls</button></section>
-    </div>
-  </main>
-  <footer><span>THYTOXICGAMER // POLL CONTROLS</span><span><a href="./">Public Poll Center</a> · <a href="../">Command Center</a></span></footer>
-  <script src="staff.js?v=20260920-4"></script>
+<body>
+  <p>Community polls have moved to Discord. <a href="https://discord.gg/SSwDcXHq57">Open The Toxic Zone</a>.</p>
 </body>
 </html>
