@@ -479,11 +479,36 @@
     border-radius: 12px;
     background: var(--toxic-panel);
   }
-  #toxic-command-center-concept a.tcc-social { text-decoration: none; transition: border-color .2s ease, transform .2s ease, box-shadow .2s ease; }
-  #toxic-command-center-concept a.tcc-social:hover { border-color: rgba(124,255,0,.48); transform: translateY(-2px); box-shadow: 0 10px 26px rgba(0,0,0,.24); }
-  #toxic-command-center-concept a.tcc-social:nth-child(even):hover { border-color: rgba(255,43,138,.48); }
-  #toxic-command-center-concept .tcc-social i { color: var(--toxic-green); }
-  #toxic-command-center-concept .tcc-social:nth-child(even) i { color: var(--toxic-pink); }
+  #toxic-command-center-concept a.tcc-social {
+    --social-color: var(--toxic-green);
+    --social-glow: rgba(124,255,0,.24);
+    text-decoration: none;
+    transition: border-color .2s ease, transform .2s ease, box-shadow .2s ease, background .2s ease;
+  }
+  #toxic-command-center-concept a.tcc-social:hover {
+    border-color: var(--social-color);
+    transform: translateY(-2px);
+    background: color-mix(in srgb, var(--social-color) 8%, var(--toxic-panel));
+    box-shadow: 0 10px 28px var(--social-glow);
+  }
+  #toxic-command-center-concept a.tcc-social:focus-visible {
+    outline: 2px solid var(--social-color);
+    outline-offset: 3px;
+  }
+  #toxic-command-center-concept a.tcc-social > i,
+  #toxic-command-center-concept a.tcc-social > svg { color: var(--social-color); }
+  #toxic-command-center-concept a.tcc-social:hover strong { color: var(--social-color); }
+
+  #toxic-command-center-concept .tcc-social[data-social-platform="twitch"] { --social-color: #9146ff; --social-glow: rgba(145,70,255,.30); }
+  #toxic-command-center-concept .tcc-social[data-social-platform="youtube"] { --social-color: #ff0000; --social-glow: rgba(255,0,0,.30); }
+  #toxic-command-center-concept .tcc-social[data-social-platform="kick"] { --social-color: #53fc18; --social-glow: rgba(83,252,24,.28); }
+  #toxic-command-center-concept .tcc-social[data-social-platform="discord"] { --social-color: #5865f2; --social-glow: rgba(88,101,242,.32); }
+  #toxic-command-center-concept .tcc-social[data-social-platform="x"] { --social-color: #f5f5f5; --social-glow: rgba(255,255,255,.22); }
+  #toxic-command-center-concept .tcc-social[data-social-platform="instagram"] { --social-color: #e1306c; --social-glow: rgba(193,53,132,.32); }
+  #toxic-command-center-concept .tcc-social[data-social-platform="tiktok"] { --social-color: #25f4ee; --social-glow: rgba(254,44,85,.30); }
+  #toxic-command-center-concept .tcc-social[data-social-platform="tiktok"]:hover {
+    box-shadow: -5px 8px 24px rgba(37,244,238,.18), 5px 8px 24px rgba(254,44,85,.22);
+  }
   #toxic-command-center-concept .tcc-social span { display: block; color: var(--toxic-muted); font-size: 12px; margin-top: 3px; }
   #toxic-command-center-concept .tcc-live-state { display: inline-flex !important; align-items: center; gap: 7px; margin: 0 0 0 auto !important; color: var(--toxic-muted) !important; white-space: nowrap; }
   #toxic-command-center-concept .tcc-live-state [data-live-label] { display: inline !important; margin: 0 !important; color: inherit !important; }
@@ -590,13 +615,13 @@
     <section id="tcc-socials" role="tabpanel" hidden>
       <div class="tcc-section-banner tcc-banner-socials"><div class="tcc-banner-copy"><span class="tcc-section-icon"><i data-lucide="share-2" aria-hidden="true"></i></span><h2>Official Socials</h2><p>Every verified ThyToxicGamer destination and future live status in one place.</p></div></div>
       <div class="tcc-section-content tcc-social-grid">
-        <a class="tcc-social" href="https://www.twitch.tv/thytoxicgamer" target="_blank" rel="noopener noreferrer" aria-label="Twitch: Offline. Open Twitch"><i data-lucide="radio" aria-hidden="true"></i><div><strong>Twitch</strong><span>Live streams and community</span></div><span class="tcc-live-state" data-live-platform="twitch"><i class="tcc-live-light" aria-hidden="true"></i><span data-live-label>Offline</span></span></a>
-        <a class="tcc-social" href="https://www.youtube.com/@ThyToxicGamer" target="_blank" rel="noopener noreferrer" aria-label="YouTube: Offline. Open YouTube"><i data-lucide="play" aria-hidden="true"></i><div><strong>YouTube</strong><span>Videos, shorts and live broadcasts</span></div><span class="tcc-live-state" data-live-platform="youtube"><i class="tcc-live-light" aria-hidden="true"></i><span data-live-label>Offline</span></span></a>
-        <a class="tcc-social" href="https://kick.com/thytoxicgamer" target="_blank" rel="noopener noreferrer" aria-label="Kick: Offline. Open Kick"><i data-lucide="radio" aria-hidden="true"></i><div><strong>Kick</strong><span>Alternative live stream</span></div><span class="tcc-live-state" data-live-platform="kick"><i class="tcc-live-light" aria-hidden="true"></i><span data-live-label>Offline</span></span></a>
-        <div class="tcc-social"><i data-lucide="message-circle" aria-hidden="true"></i><div><strong>Discord</strong><span>The Toxic Zone community server</span></div><span class="tcc-live-state is-live" data-live-platform="discord"><i class="tcc-live-light"></i>Active</span></div>
-        <div class="tcc-social"><i data-lucide="at-sign" aria-hidden="true"></i><div><strong>X / Twitter</strong><span>@ThyToxicGamer</span></div><span class="tcc-live-state is-live" data-live-platform="x"><i class="tcc-live-light"></i>Active</span></div>
-        <div class="tcc-social"><i data-lucide="camera" aria-hidden="true"></i><div><strong>Instagram</strong><span>@thytoxicgamer</span></div><span class="tcc-live-state is-live" data-live-platform="instagram"><i class="tcc-live-light"></i>Active</span></div>
-        <div class="tcc-social"><i data-lucide="music-2" aria-hidden="true"></i><div><strong>TikTok</strong><span>Clips, highlights and live content</span></div><span class="tcc-live-state is-live" data-live-platform="tiktok"><i class="tcc-live-light"></i>Active</span></div>
+        <a class="tcc-social" data-social-platform="twitch" href="https://www.twitch.tv/thytoxicgamer" target="_blank" rel="noopener noreferrer" aria-label="Twitch: Offline. Open Twitch"><i data-lucide="radio" aria-hidden="true"></i><div><strong>Twitch</strong><span>Live streams and community</span></div><span class="tcc-live-state" data-live-platform="twitch"><i class="tcc-live-light" aria-hidden="true"></i><span data-live-label>Offline</span></span></a>
+        <a class="tcc-social" data-social-platform="youtube" href="https://www.youtube.com/@ThyToxicGamer" target="_blank" rel="noopener noreferrer" aria-label="YouTube: Offline. Open YouTube"><i data-lucide="play" aria-hidden="true"></i><div><strong>YouTube</strong><span>Videos, shorts and live broadcasts</span></div><span class="tcc-live-state" data-live-platform="youtube"><i class="tcc-live-light" aria-hidden="true"></i><span data-live-label>Offline</span></span></a>
+        <a class="tcc-social" data-social-platform="kick" href="https://kick.com/thytoxicgamer" target="_blank" rel="noopener noreferrer" aria-label="Kick: Offline. Open Kick"><i data-lucide="radio" aria-hidden="true"></i><div><strong>Kick</strong><span>Alternative live stream</span></div><span class="tcc-live-state" data-live-platform="kick"><i class="tcc-live-light" aria-hidden="true"></i><span data-live-label>Offline</span></span></a>
+        <a class="tcc-social" data-social-platform="discord" href="https://discord.gg/SSwDcXHq57" target="_blank" rel="noopener noreferrer" aria-label="Open The Toxic Zone Discord"><i data-lucide="message-circle" aria-hidden="true"></i><div><strong>Discord</strong><span>The Toxic Zone community server</span></div><span class="tcc-live-state is-live" data-live-platform="discord"><i class="tcc-live-light"></i>Active</span></a>
+        <a class="tcc-social" data-social-platform="x" href="https://x.com/ThyToxicGamer" target="_blank" rel="noopener noreferrer" aria-label="Open ThyToxicGamer on X"><i data-lucide="at-sign" aria-hidden="true"></i><div><strong>X / Twitter</strong><span>@ThyToxicGamer</span></div><span class="tcc-live-state is-live" data-live-platform="x"><i class="tcc-live-light"></i>Active</span></a>
+        <a class="tcc-social" data-social-platform="instagram" href="https://www.instagram.com/thytoxicgamer/" target="_blank" rel="noopener noreferrer" aria-label="Open ThyToxicGamer on Instagram"><i data-lucide="camera" aria-hidden="true"></i><div><strong>Instagram</strong><span>@thytoxicgamer</span></div><span class="tcc-live-state is-live" data-live-platform="instagram"><i class="tcc-live-light"></i>Active</span></a>
+        <a class="tcc-social" data-social-platform="tiktok" href="https://www.tiktok.com/@thytoxicgamer" target="_blank" rel="noopener noreferrer" aria-label="Open ThyToxicGamer on TikTok"><i data-lucide="music-2" aria-hidden="true"></i><div><strong>TikTok</strong><span>@thytoxicgamer · Clips, highlights and live content</span></div><span class="tcc-live-state is-live" data-live-platform="tiktok"><i class="tcc-live-light"></i>Active</span></a>
       </div>
       <p class="tcc-note" id="tcc-live-status-note" aria-live="polite">Live status updates automatically.</p>
     </section>
