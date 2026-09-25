@@ -18,6 +18,7 @@ const ADMIN_SECRET = Deno.env.get("LIVE_STATUS_SECRET") ?? "";
 const OFFICIAL_LINKS_CHANNEL_ID = "1536919005099728898";
 const OFFICIAL_LINKS_TITLE = "Official ThyToxicGamer Links";
 const BOT_INFO_CHANNEL_ID = "1536918882143576166";
+const COMMUNITY_INFO_CHANNEL_ID = "1536918882143576166";
 const BOT_INFO_TITLES = ["YouTube Bot", "UB3R-B0T", "Dyno"] as const;
 
 const PERMISSIONS = {
@@ -447,6 +448,50 @@ async function publishBotInformation(): Promise<AnyRecord> {
     results.push({ title, operation, message_id: String(message.id), verified: true });
   }
   return { channel_id: BOT_INFO_CHANNEL_ID, messages: results };
+}
+
+
+async function republishUpdatedCommunityMessages(): Promise<AnyRecord> {
+  const replacements = [COMMUNITY_INFO_MESSAGES[0], COMMUNITY_INFO_MESSAGES[3]];
+  const replacementTitles = [
+    String(replacements[0].embeds[0].title),
+    String(replacements[1].embeds[0].title),
+  ];
+  const titlesToReplace = new Set([
+    replacementTitles[0],
+    replacementTitles[1],
+    "🎟️ Private Tickets, Polls & Community Tools",
+  ]);
+  const history = await discord(`/channels/${COMMUNITY_INFO_CHANNEL_ID}/messages?limit=100`);
+  const messages = Array.isArray(history) ? history : [];
+  const oldMessages = messages.filter((message: AnyRecord) =>
+    String(message.author?.id ?? "") === APPLICATION_ID &&
+    (message.embeds ?? []).some((embed: AnyRecord) => titlesToReplace.has(String(embed.title ?? "")))
+  );
+
+  for (const message of oldMessages) {
+    await discord(`/channels/${COMMUNITY_INFO_CHANNEL_ID}/messages/${message.id}`, { method: "DELETE" });
+  }
+
+  const posted: AnyRecord[] = [];
+  for (let index = 0; index < replacements.length; index++) {
+    const message = await discord(`/channels/${COMMUNITY_INFO_CHANNEL_ID}/messages`, {
+      method: "POST",
+      body: JSON.stringify(replacements[index]),
+    });
+    const verified = await discord(`/channels/${COMMUNITY_INFO_CHANNEL_ID}/messages/${message.id}`);
+    const verifiedTitle = String(verified?.embeds?.[0]?.title ?? "");
+    if (verifiedTitle !== replacementTitles[index]) {
+      throw new Error(`Discord returned the message, but the ${replacementTitles[index]} embed could not be verified.`);
+    }
+    posted.push({ title: verifiedTitle, message_id: String(message.id), verified: true });
+  }
+
+  return {
+    channel_id: COMMUNITY_INFO_CHANNEL_ID,
+    removed_message_ids: oldMessages.map((message: AnyRecord) => String(message.id)),
+    messages: posted,
+  };
 }
 
 function auditReason(caseCode: string, reason: string): string {
@@ -2091,12 +2136,14 @@ Deno.serve(async (req: Request) => {
     } catch {
       return json({ error: "Invalid JSON" }, 400);
     }
-    if (!["publish_official_links", "publish_bot_information"].includes(String(adminRequest.action ?? ""))) {
+    if (!["publish_official_links", "publish_bot_information", "republish_updated_community_messages"].includes(String(adminRequest.action ?? ""))) {
       return json({ error: "Unknown admin action" }, 400);
     }
     try {
       const result = adminRequest.action === "publish_bot_information"
         ? await publishBotInformation()
+        : adminRequest.action === "republish_updated_community_messages"
+        ? await republishUpdatedCommunityMessages()
         : await publishOfficialLinks();
       return json({ ok: true, ...result });
     } catch (error) {
