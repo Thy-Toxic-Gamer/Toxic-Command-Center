@@ -14,6 +14,11 @@ const BOT_TOKEN = Deno.env.get("DISCORD_BOT_TOKEN") ?? "";
 const PUBLIC_KEY = Deno.env.get("DISCORD_PUBLIC_KEY") ?? "";
 const LEGACY_SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
 const SECRET_KEYS = Deno.env.get("SUPABASE_SECRET_KEYS") ?? "";
+const ADMIN_SECRET = Deno.env.get("LIVE_STATUS_SECRET") ?? "";
+const OFFICIAL_LINKS_CHANNEL_ID = "1536919005099728898";
+const OFFICIAL_LINKS_TITLE = "Official ThyToxicGamer Links";
+const BOT_INFO_CHANNEL_ID = "1536918882143576166";
+const BOT_INFO_TITLES = ["YouTube Bot", "UB3R-B0T", "Dyno"] as const;
 
 const PERMISSIONS = {
   KICK_MEMBERS: 1n << 1n,
@@ -172,6 +177,276 @@ async function discord(path: string, init: RequestInit = {}, retry = true): Prom
     throw new DiscordError(response.status, String(payload?.message ?? `Discord request failed (${response.status})`), payload?.code);
   }
   return payload;
+}
+
+function officialLinksPayload(): AnyRecord {
+  return {
+    embeds: [{
+      title: OFFICIAL_LINKS_TITLE,
+      description: "Everything official for **ThyToxicGamer — The Toxic One**.",
+      color: 0x72ff00,
+      fields: [
+        {
+          name: "Watch Live",
+          value: "[Twitch](https://www.twitch.tv/thytoxicgamer) • [YouTube](https://www.youtube.com/@ThyToxicGamer) • [Kick](https://kick.com/thytoxicgamer)",
+          inline: false,
+        },
+        {
+          name: "Community & Socials",
+          value: "[Discord](https://discord.gg/SSwDcXHq57) • [X / Twitter](https://x.com/ThyToxicGamer) • [Instagram](https://www.instagram.com/thytoxicgamer/)",
+          inline: false,
+        },
+        {
+          name: "Toxic Command Center",
+          value: "[Central Command](https://thy-toxic-gamer.github.io/Toxic-Command-Center/) • [Game Requests](https://thy-toxic-gamer.github.io/Toxic-Command-Center/games/) • [Poll Center](https://thy-toxic-gamer.github.io/Toxic-Command-Center/polls/)\n[Ticket Center](https://thy-toxic-gamer.github.io/Toxic-Command-Center/tickets/) • [Appeals Center](https://thy-toxic-gamer.github.io/Toxic-Command-Center/appeals-center/) • [Support Center](https://thy-toxic-gamer.github.io/Toxic-Command-Center/support/)",
+          inline: false,
+        },
+      ],
+      footer: { text: "ThyToxicBot • Official links only" },
+      timestamp: new Date().toISOString(),
+    }],
+    components: [
+      {
+        type: 1,
+        components: [
+          { type: 2, style: 5, label: "Twitch", url: "https://www.twitch.tv/thytoxicgamer" },
+          { type: 2, style: 5, label: "YouTube", url: "https://www.youtube.com/@ThyToxicGamer" },
+          { type: 2, style: 5, label: "Kick", url: "https://kick.com/thytoxicgamer" },
+          { type: 2, style: 5, label: "Discord", url: "https://discord.gg/SSwDcXHq57" },
+        ],
+      },
+      {
+        type: 1,
+        components: [
+          { type: 2, style: 5, label: "X / Twitter", url: "https://x.com/ThyToxicGamer" },
+          { type: 2, style: 5, label: "Instagram", url: "https://www.instagram.com/thytoxicgamer/" },
+          { type: 2, style: 5, label: "Command Center", url: "https://thy-toxic-gamer.github.io/Toxic-Command-Center/" },
+        ],
+      },
+    ],
+    allowed_mentions: { parse: [] },
+  };
+}
+
+async function publishOfficialLinks(): Promise<AnyRecord> {
+  const payload = officialLinksPayload();
+  let existing: AnyRecord | undefined;
+  try {
+    const messages = await discord(`/channels/${OFFICIAL_LINKS_CHANNEL_ID}/messages?limit=100`);
+    existing = Array.isArray(messages)
+      ? messages.find((message: AnyRecord) =>
+        String(message.author?.id ?? "") === APPLICATION_ID &&
+        (message.embeds ?? []).some((embed: AnyRecord) => String(embed.title ?? "") === OFFICIAL_LINKS_TITLE)
+      )
+      : undefined;
+  } catch (error) {
+    if (!(error instanceof DiscordError) || error.status !== 403) throw error;
+    console.warn("official links history unavailable", safeMessage(error));
+  }
+
+  const operation = existing ? "updated" : "created";
+  const message = existing
+    ? await discord(`/channels/${OFFICIAL_LINKS_CHANNEL_ID}/messages/${existing.id}`, {
+      method: "PATCH",
+      body: JSON.stringify(payload),
+    })
+    : await discord(`/channels/${OFFICIAL_LINKS_CHANNEL_ID}/messages`, {
+      method: "POST",
+      body: JSON.stringify(payload),
+    });
+
+  const verified = await discord(`/channels/${OFFICIAL_LINKS_CHANNEL_ID}/messages/${message.id}`);
+  const verifiedTitle = String(verified?.embeds?.[0]?.title ?? "");
+  if (verifiedTitle !== OFFICIAL_LINKS_TITLE) throw new Error("Discord returned the message, but the official links embed could not be verified.");
+  return { operation, channel_id: OFFICIAL_LINKS_CHANNEL_ID, message_id: String(message.id), verified: true };
+}
+
+
+function botInformationPayloads(): AnyRecord[] {
+  const footer = { text: "ThyToxicBot • Bot information" };
+  return [
+    {
+      embeds: [{
+        title: "YouTube Bot",
+        description: "The dedicated YouTube notification bot for **ThyToxicGamer**. It keeps the server informed when new YouTube content is published.",
+        color: 0xff0000,
+        fields: [
+          {
+            name: "Purpose",
+            value: "Posts notifications from the **ThyToxicGamer YouTube channel** into the server so members can quickly open new videos and livestream pages.",
+            inline: false,
+          },
+          {
+            name: "What It Handles",
+            value: "• YouTube uploads and stream-page notifications\n• Direct links back to the YouTube content\n• Custom notification text and channel routing",
+            inline: false,
+          },
+          {
+            name: "Management Commands",
+            value: "`/notify add` — add or configure a YouTube feed\n`/notify list` — review configured feeds\n`/notify reset` — remove/reset a feed",
+            inline: false,
+          },
+          {
+            name: "Server Configuration",
+            value: "Channel being followed: **@ThyToxicGamer**\nDestination: the dedicated **YouTube notifications channel**.",
+            inline: false,
+          },
+          {
+            name: "Staff Notes",
+            value: "Only authorized staff should change the feed. YouTube may publish a scheduled stream page before the broadcast actually begins, so a notice can appear before the exact go-live moment.",
+            inline: false,
+          },
+          {
+            name: "Official Links",
+            value: "[Bot page](https://top.gg/bot/456633518882160642) • [ThyToxicGamer on YouTube](https://www.youtube.com/@ThyToxicGamer)",
+            inline: false,
+          },
+        ],
+        footer,
+      }],
+      components: [{
+        type: 1,
+        components: [
+          { type: 2, style: 5, label: "Open Bot Page", url: "https://top.gg/bot/456633518882160642" },
+          { type: 2, style: 5, label: "Open YouTube", url: "https://www.youtube.com/@ThyToxicGamer" },
+        ],
+      }],
+      allowed_mentions: { parse: [] },
+    },
+    {
+      embeds: [{
+        title: "UB3R-B0T",
+        description: "The dedicated Twitch notification bot for **ThyToxicGamer**. Its main job in this server is announcing Twitch streams.",
+        color: 0x9146ff,
+        fields: [
+          {
+            name: "Purpose",
+            value: "Watches the **thytoxicgamer** Twitch account and sends a notification to the selected Discord channel when a Twitch stream is detected.",
+            inline: false,
+          },
+          {
+            name: "What It Handles",
+            value: "• Twitch go-live notifications\n• Stream title and Twitch link\n• Optional role mention and custom announcement text\n• Other feed types are available, but are not its assigned job here",
+            inline: false,
+          },
+          {
+            name: "Server Configuration",
+            value: "Twitch account: **thytoxicgamer**\nDestination: **🟣・twitch**\nDefault bot prefix: `.`",
+            inline: false,
+          },
+          {
+            name: "Management",
+            value: "Feed settings are managed from the UB3R-B0T dashboard. Staff can change the destination, extra announcement text, and feed options without touching the website or Streamer.bot.",
+            inline: false,
+          },
+          {
+            name: "Staff Notes",
+            value: "Keep unrelated greeting, farewell, censor, and novelty-response features disabled unless they are intentionally added later. This prevents overlap with the server's other bots.",
+            inline: false,
+          },
+          {
+            name: "Official Links",
+            value: "[Dashboard](https://admin.ub3r-b0t.com/) • [Website](https://ub3r-b0t.com/) • [Notification documentation](https://ub3r-b0t.com/docs/articles/notifications.html)",
+            inline: false,
+          },
+        ],
+        footer,
+      }],
+      components: [{
+        type: 1,
+        components: [
+          { type: 2, style: 5, label: "Open Dashboard", url: "https://admin.ub3r-b0t.com/" },
+          { type: 2, style: 5, label: "Open Documentation", url: "https://ub3r-b0t.com/docs/articles/notifications.html" },
+        ],
+      }],
+      allowed_mentions: { parse: [] },
+    },
+    {
+      embeds: [{
+        title: "Dyno",
+        description: "The server's dedicated moderation and AutoMod bot. Dyno helps staff control spam and rule-breaking while keeping moderation separate from stream notifications.",
+        color: 0x5865f2,
+        fields: [
+          {
+            name: "Purpose",
+            value: "Provides Discord moderation, automated rule enforcement, and staff logs. It supports the moderation team; it does not replace ThyToxicBot's custom systems.",
+            inline: false,
+          },
+          {
+            name: "What It Handles",
+            value: "• AutoMod and anti-spam protection\n• Moderator actions such as warnings, mutes, kicks, and bans\n• Action logs for staff review\n• Additional safety modules enabled by server administrators",
+            inline: false,
+          },
+          {
+            name: "Role in This Setup",
+            value: "Dyno is for **Discord moderation**. YouTube notifications stay with YouTube Bot, Twitch notifications stay with UB3R-B0T, and stream-chat commands stay with Nightbot/StreamElements.",
+            inline: false,
+          },
+          {
+            name: "Permissions & Role Order",
+            value: "Dyno's role must stay below Owner/Admin/Staff roles and above the regular member roles it needs to moderate. Only grant the permissions required by the enabled modules.",
+            inline: false,
+          },
+          {
+            name: "Staff Notes",
+            value: "Configure modules from the Dyno dashboard. Avoid enabling duplicate welcome messages, stream notifications, or public commands that are already handled elsewhere.",
+            inline: false,
+          },
+          {
+            name: "Official Links",
+            value: "[Dashboard](https://dyno.gg/account) • [Bot information](https://dyno.gg/bot)",
+            inline: false,
+          },
+        ],
+        footer,
+      }],
+      components: [{
+        type: 1,
+        components: [
+          { type: 2, style: 5, label: "Open Dashboard", url: "https://dyno.gg/account" },
+          { type: 2, style: 5, label: "Open Bot Page", url: "https://dyno.gg/bot" },
+        ],
+      }],
+      allowed_mentions: { parse: [] },
+    },
+  ];
+}
+
+async function publishBotInformation(): Promise<AnyRecord> {
+  const payloads = botInformationPayloads();
+  let messages: AnyRecord[] = [];
+  try {
+    const history = await discord(`/channels/${BOT_INFO_CHANNEL_ID}/messages?limit=100`);
+    messages = Array.isArray(history) ? history : [];
+  } catch (error) {
+    if (!(error instanceof DiscordError) || error.status !== 403) throw error;
+    console.warn("bot information history unavailable", safeMessage(error));
+  }
+
+  const results: AnyRecord[] = [];
+  for (let index = 0; index < payloads.length; index++) {
+    const payload = payloads[index];
+    const title = BOT_INFO_TITLES[index];
+    const existing = messages.find((message: AnyRecord) =>
+      String(message.author?.id ?? "") === APPLICATION_ID &&
+      (message.embeds ?? []).some((embed: AnyRecord) => String(embed.title ?? "") === title)
+    );
+    const operation = existing ? "updated" : "created";
+    const message = existing
+      ? await discord(`/channels/${BOT_INFO_CHANNEL_ID}/messages/${existing.id}`, {
+        method: "PATCH",
+        body: JSON.stringify(payload),
+      })
+      : await discord(`/channels/${BOT_INFO_CHANNEL_ID}/messages`, {
+        method: "POST",
+        body: JSON.stringify(payload),
+      });
+    const verified = await discord(`/channels/${BOT_INFO_CHANNEL_ID}/messages/${message.id}`);
+    const verifiedTitle = String(verified?.embeds?.[0]?.title ?? "");
+    if (verifiedTitle !== title) throw new Error(`Discord returned the message, but the ${title} embed could not be verified.`);
+    results.push({ title, operation, message_id: String(message.id), verified: true });
+  }
+  return { channel_id: BOT_INFO_CHANNEL_ID, messages: results };
 }
 
 function auditReason(caseCode: string, reason: string): string {
@@ -1807,6 +2082,28 @@ async function autocomplete(interaction: AnyRecord): Promise<Response> {
 }
 
 Deno.serve(async (req: Request) => {
+  const suppliedAdminSecret = req.headers.get("x-thytoxicbot-admin-secret") ?? "";
+  if (req.method === "POST" && suppliedAdminSecret) {
+    if (!ADMIN_SECRET || suppliedAdminSecret !== ADMIN_SECRET) return json({ error: "Unauthorized" }, 401);
+    let adminRequest: AnyRecord;
+    try {
+      adminRequest = await req.json();
+    } catch {
+      return json({ error: "Invalid JSON" }, 400);
+    }
+    if (!["publish_official_links", "publish_bot_information"].includes(String(adminRequest.action ?? ""))) {
+      return json({ error: "Unknown admin action" }, 400);
+    }
+    try {
+      const result = adminRequest.action === "publish_bot_information"
+        ? await publishBotInformation()
+        : await publishOfficialLinks();
+      return json({ ok: true, ...result });
+    } catch (error) {
+      console.error("admin publish failed", safeMessage(error));
+      return json({ ok: false, error: safeMessage(error) }, 500);
+    }
+  }
   if (req.method === "GET") {
     return json({ ok: true, service: "ThyToxicBot", configured: Boolean(BOT_TOKEN && PUBLIC_KEY) });
   }
