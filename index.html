@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="description" content="The official ThyToxicGamer command center for commands, system specifications, peripherals and social channels.">
+  <meta name="description" content="The official ThyToxicGamer hub for system specifications, peripherals, social channels, and community resources.">
   <meta name="theme-color" content="#050806">
   <title>Toxic Command Center | ThyToxicGamer</title>
   <link rel="icon" href="./tab-icon.png" type="image/png">
@@ -537,7 +537,6 @@
     </div>
     <nav class="tcc-nav" role="tablist" aria-label="Hub sections">
       <button type="button" role="tab" aria-selected="true" aria-controls="tcc-home" data-tab="tcc-home">Home</button>
-      <button type="button" role="tab" aria-selected="false" aria-controls="tcc-commands" data-tab="tcc-commands">Commands</button>
       <button type="button" role="tab" aria-selected="false" aria-controls="tcc-specs" data-tab="tcc-specs">Specs</button>
       <button type="button" role="tab" aria-selected="false" aria-controls="tcc-peripherals" data-tab="tcc-peripherals">Peripherals</button>
       <button type="button" role="tab" aria-selected="false" aria-controls="tcc-socials" data-tab="tcc-socials">Socials</button>
@@ -564,83 +563,12 @@
       </div>
 
       <div class="tcc-grid">
-        <button class="tcc-tile" type="button" data-open="tcc-commands"><span class="tcc-tile-icon"><i data-lucide="terminal" aria-hidden="true"></i></span><h3>Commands</h3><p>Search the essential chat commands and aliases.</p></button>
         <button class="tcc-tile" type="button" data-open="tcc-specs"><span class="tcc-tile-icon"><i data-lucide="cpu" aria-hidden="true"></i></span><h3>PC Specs</h3><p>Gaming and streaming hardware in one clear view.</p></button>
         <button class="tcc-tile" type="button" data-open="tcc-peripherals"><span class="tcc-tile-icon"><i data-lucide="cable" aria-hidden="true"></i></span><h3>Peripherals</h3><p>Gaming and streaming equipment, separated clearly.</p></button>
         <button class="tcc-tile" type="button" data-open="tcc-socials"><span class="tcc-tile-icon"><i data-lucide="share-2" aria-hidden="true"></i></span><h3>Socials</h3><p>Find every official ThyToxicGamer channel.</p></button>
         <a class="tcc-tile" href="./polls/" style="text-decoration:none"><span class="tcc-tile-icon"><i data-lucide="chart-no-axes-column" aria-hidden="true"></i></span><h3>Poll Center</h3><p>Vote in official community polls and follow the live results.</p></a>
         <a class="tcc-tile" href="./tickets/" style="text-decoration:none"><span class="tcc-tile-icon"><i data-lucide="ticket-check" aria-hidden="true"></i></span><h3>Ticket Center</h3><p>Open a private support ticket with the correct authorized staff team.</p></a>
         <a class="tcc-tile" href="./appeals-center/" style="text-decoration:none"><span class="tcc-tile-icon"><i data-lucide="shield-check" aria-hidden="true"></i></span><h3>Appeals Center</h3><p>Submit a moderation appeal or securely track an existing case.</p></a>
-      </div>
-    </section>
-
-    <section id="tcc-commands" role="tabpanel" hidden>
-      <div class="tcc-section-banner tcc-banner-commands"><div class="tcc-banner-copy"><span class="tcc-section-icon"><i data-lucide="terminal" aria-hidden="true"></i></span><h2>Command Directory</h2><p>Search the commands available across The Toxic Zone.</p></div></div>
-      <div class="tcc-command-tools">
-        <div class="tcc-platform-filters" aria-label="Filter commands by platform">
-          <button class="tcc-platform-filter is-active" type="button" data-command-platform="all" aria-pressed="true">All</button>
-          <button class="tcc-platform-filter" type="button" data-command-platform="discord" aria-pressed="false">Discord</button>
-          <button class="tcc-platform-filter" type="button" data-command-platform="twitch" aria-pressed="false">Twitch</button>
-          <button class="tcc-platform-filter" type="button" data-command-platform="youtube" aria-pressed="false">YouTube</button>
-          <button class="tcc-platform-filter" type="button" data-command-platform="kick" aria-pressed="false">Kick</button>
-        </div>
-        <input class="tcc-search" id="tcc-command-search" type="search" placeholder="Search commands, systems, or access" aria-label="Search commands, systems, or access level">
-      </div>
-      <div class="tcc-permission-key" aria-label="Permission color key"><span class="tcc-access tcc-access-everyone">Everyone</span><span class="tcc-access tcc-access-mod">Moderator</span><span class="tcc-access tcc-access-admin">Admin</span><span class="tcc-access tcc-access-owner">Owner</span></div>
-      <div class="tcc-list" id="tcc-command-list">
-        <div class="tcc-command-header" aria-hidden="true"><span>Command</span><span>Description</span><span>Platforms</span><span>System</span><span>Allowed Roles</span></div>
-        <div class="tcc-command" data-command="discord server invite twitch youtube kick streamer.bot everyone"><code>!discord</code><span>Join The Toxic Zone community.</span><span class="tcc-platforms">Twitch · YouTube · Kick</span><span class="tcc-command-system">Streamer.bot</span><span class="tcc-access tcc-access-everyone">Everyone</span></div>
-        <div class="tcc-command" data-command="donation donate tip support paypal twitch youtube kick streamer.bot everyone"><code>!donation · !donate · !tip</code><span>Open the official Support Center.</span><span class="tcc-platforms">Twitch · YouTube · Kick</span><span class="tcc-command-system">Streamer.bot</span><span class="tcc-access tcc-access-everyone">Everyone</span></div>
-        <div class="tcc-command" data-command="socials social links twitch youtube kick streamer.bot everyone"><code>!socials</code><span>View all official social links.</span><span class="tcc-platforms">Twitch · YouTube · Kick</span><span class="tcc-command-system">Streamer.bot</span><span class="tcc-access tcc-access-everyone">Everyone</span></div>
-        <div class="tcc-command" data-command="youtube channel videos vod twitch youtube kick streamer.bot everyone"><code>!youtube</code><span>Open the official YouTube channel for videos, VODs, and live streams.</span><span class="tcc-platforms">Twitch · YouTube · Kick</span><span class="tcc-command-system">Streamer.bot</span><span class="tcc-access tcc-access-everyone">Everyone</span></div>
-        <div class="tcc-command" data-command="song music spotify twitch youtube kick streamer.bot everyone"><code>!song · !music</code><span>Show the currently playing Spotify track.</span><span class="tcc-platforms">Twitch · YouTube · Kick</span><span class="tcc-command-system">Streamer.bot</span><span class="tcc-access tcc-access-everyone">Everyone</span></div>
-        <div class="tcc-command" data-command="lurk twitch streamer.bot everyone"><code>!lurk</code><span>Let the community know you are lurking.</span><span class="tcc-platforms">Twitch</span><span class="tcc-command-system">Streamer.bot</span><span class="tcc-access tcc-access-everyone">Everyone</span></div>
-        <div class="tcc-command" data-command="specs pcspecs pc computer hardware twitch youtube kick streamer.bot everyone"><code>!specs · !pcspecs</code><span>View the Gaming PC and Streaming PC hardware specifications.</span><span class="tcc-platforms">Twitch · YouTube · Kick</span><span class="tcc-command-system">Streamer.bot</span><span class="tcc-access tcc-access-everyone">Everyone</span></div>
-        <div class="tcc-command" data-command="setup pcsetup peripherals equipment gear twitch youtube kick streamer.bot everyone"><code>!setup · !pcsetup</code><span>View the complete streaming setup, peripherals, and equipment.</span><span class="tcc-platforms">Twitch · YouTube · Kick</span><span class="tcc-command-system">Streamer.bot</span><span class="tcc-access tcc-access-everyone">Everyone</span></div>
-        <div class="tcc-command" data-command="blur camera webcam background twitch youtube kick streamer.bot everyone"><code>!blur</code><span>Show information about the stream's camera background blur.</span><span class="tcc-platforms">Twitch · YouTube · Kick</span><span class="tcc-command-system">Streamer.bot</span><span class="tcc-access tcc-access-everyone">Everyone</span></div>
-        <div class="tcc-command" data-command="drops twitch rewards streamer.bot everyone"><code>!drops</code><span>Show the current Twitch Drops information.</span><span class="tcc-platforms">Twitch</span><span class="tcc-command-system">Streamer.bot</span><span class="tcc-access tcc-access-everyone">Everyone</span></div>
-        <div class="tcc-command" data-command="cmds commands command directory twitch youtube kick streamer.bot everyone"><code>!cmds · !commands</code><span>Open this searchable Command Directory.</span><span class="tcc-platforms">Twitch · YouTube · Kick</span><span class="tcc-command-system">Streamer.bot</span><span class="tcc-access tcc-access-everyone">Everyone</span></div>
-        <div class="tcc-command" data-command="poll polls vote website twitch youtube kick streamer.bot everyone"><code>!poll · !polls · !vote</code><span>Open the Poll Center to vote or view the latest results.</span><span class="tcc-platforms">Twitch · YouTube · Kick</span><span class="tcc-command-system">Streamer.bot</span><span class="tcc-access tcc-access-everyone">Everyone</span></div>
-        <div class="tcc-command" data-command="poll polls vote website discord thytoxicbot everyone"><code>/t poll · /t polls</code><span>Open the Poll Center and list every poll currently accepting votes.</span><span class="tcc-platforms">Discord</span><span class="tcc-command-system">ThyToxicBot</span><span class="tcc-access tcc-access-everyone">Everyone</span></div>
-        <div class="tcc-command" data-command="pollcreate create question choices timer discord thytoxicbot moderator"><code>/t pollcreate</code><span>Create a website-only poll and publish it in the Discord polls channel.</span><span class="tcc-platforms">Discord</span><span class="tcc-command-system">ThyToxicBot</span><span class="tcc-access tcc-access-mod">Moderator</span></div>
-        <div class="tcc-command" data-command="pollclose close results discord thytoxicbot moderator"><code>/t pollclose</code><span>Close an open poll and publish the final results.</span><span class="tcc-platforms">Discord</span><span class="tcc-command-system">ThyToxicBot</span><span class="tcc-access tcc-access-mod">Moderator</span></div>
-        <div class="tcc-command" data-command="pollclear clear archive all discord thytoxicbot owner"><code>/t pollclear</code><span>Owner only: archive every poll while preserving Discord records.</span><span class="tcc-platforms">Discord</span><span class="tcc-command-system">ThyToxicBot</span><span class="tcc-access tcc-access-owner">Owner</span></div>
-        <div class="tcc-command" data-command="uptime live time twitch streamer.bot everyone"><code>!uptime</code><span>Show how long The Toxic Zone has been live.</span><span class="tcc-platforms">Twitch</span><span class="tcc-command-system">Streamer.bot</span><span class="tcc-access tcc-access-everyone">Everyone</span></div>
-        <div class="tcc-command" data-command="clip create twitch streamer.bot everyone"><code>!clip</code><span>Create a Twitch clip from the current stream.</span><span class="tcc-platforms">Twitch</span><span class="tcc-command-system">Streamer.bot</span><span class="tcc-access tcc-access-everyone">Everyone</span></div>
-        <div class="tcc-command" data-command="marker stream description twitch streamer.bot moderator"><code>!marker [description]</code><span>Create a Twitch stream marker with an optional description.</span><span class="tcc-platforms">Twitch</span><span class="tcc-command-system">Streamer.bot</span><span class="tcc-access tcc-access-mod">Moderator</span></div>
-        <div class="tcc-command" data-command="ads commercial twitch streamer.bot moderator disabled affiliate"><code>!ads [30, 60, 90, 120, 150, or 180]</code><span>Start a Twitch ad break. Disabled until Twitch Affiliate access is available.</span><span class="tcc-platforms">Twitch</span><span class="tcc-command-system">Streamer.bot</span><span class="tcc-access tcc-access-mod">Moderator</span></div>
-        <div class="tcc-command" data-command="snooze ad pause ads twitch streamer.bot moderator disabled affiliate"><code>!snoozead</code><span>Delay the next scheduled Twitch ad by five minutes. Disabled until Twitch Affiliate access is available.</span><span class="tcc-platforms">Twitch</span><span class="tcc-command-system">Streamer.bot</span><span class="tcc-access tcc-access-mod">Moderator</span></div>
-        <div class="tcc-command" data-command="so shoutout channel streamer twitch streamer.bot moderator"><code>!so @user · !shoutout @user</code><span>Send an official Twitch shoutout to another channel.</span><span class="tcc-platforms">Twitch</span><span class="tcc-command-system">Streamer.bot</span><span class="tcc-access tcc-access-mod">Moderator</span></div>
-        <div class="tcc-command" data-command="category game twitch current streamer.bot everyone"><code>!category</code><span>Show the current Twitch game/category name.</span><span class="tcc-platforms">Twitch</span><span class="tcc-command-system">Streamer.bot</span><span class="tcc-access tcc-access-everyone">Everyone</span></div>
-        <div class="tcc-command" data-command="title twitch stream current streamer.bot everyone"><code>!title</code><span>Show the current Twitch stream title.</span><span class="tcc-platforms">Twitch</span><span class="tcc-command-system">Streamer.bot</span><span class="tcc-access tcc-access-everyone">Everyone</span></div>
-        <div class="tcc-command" data-command="tags twitch current streamer.bot everyone"><code>!tags</code><span>Show the current Twitch tags.</span><span class="tcc-platforms">Twitch</span><span class="tcc-command-system">Streamer.bot</span><span class="tcc-access tcc-access-everyone">Everyone</span></div>
-        <div class="tcc-command" data-command="setcategory update twitch category streamer.bot moderator"><code>!setcategory [category]</code><span>Change the Twitch category.</span><span class="tcc-platforms">Twitch</span><span class="tcc-command-system">Streamer.bot</span><span class="tcc-access tcc-access-mod">Moderator</span></div>
-        <div class="tcc-command" data-command="settitle update twitch title streamer.bot moderator"><code>!settitle [title]</code><span>Change the Twitch stream title.</span><span class="tcc-platforms">Twitch</span><span class="tcc-command-system">Streamer.bot</span><span class="tcc-access tcc-access-mod">Moderator</span></div>
-        <div class="tcc-command" data-command="settags update twitch tags streamer.bot moderator"><code>!settags [tag1, tag2, ...]</code><span>Change the Twitch tags.</span><span class="tcc-platforms">Twitch</span><span class="tcc-command-system">Streamer.bot</span><span class="tcc-access tcc-access-mod">Moderator</span></div>
-        <div class="tcc-command" data-command="followage follower age twitch user private whisper streamer.bot moderator owner"><code>!followage [@user]</code><span>Privately check how long a Twitch user has followed The Toxic Zone.</span><span class="tcc-platforms">Twitch</span><span class="tcc-command-system">Streamer.bot</span><span class="tcc-access tcc-access-mod">Moderator / Owner</span></div>
-        <div class="tcc-command" data-command="accountage account age created twitch user private whisper streamer.bot moderator owner"><code>!accountage [@user]</code><span>Privately check the age of a Twitch account.</span><span class="tcc-platforms">Twitch</span><span class="tcc-command-system">Streamer.bot</span><span class="tcc-access tcc-access-mod">Moderator / Owner</span></div>
-        <div class="tcc-command" data-command="watchtime watch time viewer hours persistent private whisper twitch streamer.bot moderator owner"><code>!watchtime [@user]</code><span>Privately check a viewer’s tracked watch time from live streams.</span><span class="tcc-platforms">Twitch</span><span class="tcc-command-system">Streamer.bot</span><span class="tcc-access tcc-access-mod">Moderator / Owner</span></div>
-        <div class="tcc-command" data-command="rules channel twitch youtube kick streamer.bot everyone"><code>!rules</code><span>Show The Toxic Zone chat rules.</span><span class="tcc-platforms">Twitch · YouTube · Kick</span><span class="tcc-command-system">Streamer.bot</span><span class="tcc-access tcc-access-everyone">Everyone</span></div>
-        <div class="tcc-command" data-command="ticket tickets support staff help twitch youtube kick streamer.bot everyone"><code>!ticket · !tickets</code><span>Open the private Support Ticket Center.</span><span class="tcc-platforms">Twitch · YouTube · Kick</span><span class="tcc-command-system">Streamer.bot</span><span class="tcc-access tcc-access-everyone">Everyone</span></div>
-        <div class="tcc-command" data-command="appeal appeals moderation twitch youtube kick streamer.bot everyone"><code>!appeal · !appeals</code><span>Open the official Appeals Center.</span><span class="tcc-platforms">Twitch · YouTube · Kick</span><span class="tcc-command-system">Streamer.bot</span><span class="tcc-access tcc-access-everyone">Everyone</span></div>
-        <div class="tcc-command" data-command="warn warning discord thytoxicbot moderator"><code>/t warn</code><span>Issue a documented warning with a reason and optional evidence.</span><span class="tcc-platforms">Discord</span><span class="tcc-command-system">ThyToxicBot</span><span class="tcc-access tcc-access-mod">Moderator</span></div>
-        <div class="tcc-command" data-command="mute timeout duration discord thytoxicbot moderator"><code>/t mute</code><span>Temporarily mute a member and create a numbered moderation case.</span><span class="tcc-platforms">Discord</span><span class="tcc-command-system">ThyToxicBot</span><span class="tcc-access tcc-access-mod">Moderator</span></div>
-        <div class="tcc-command" data-command="kick rejoin archive discord thytoxicbot moderator"><code>/t kick</code><span>Kick a member, notify them they may rejoin, and archive the case.</span><span class="tcc-platforms">Discord</span><span class="tcc-command-system">ThyToxicBot</span><span class="tcc-access tcc-access-mod">Moderator</span></div>
-        <div class="tcc-command" data-command="ban delete history discord thytoxicbot moderator"><code>/t ban</code><span>Ban a member and create a numbered case with optional evidence.</span><span class="tcc-platforms">Discord</span><span class="tcc-command-system">ThyToxicBot</span><span class="tcc-access tcc-access-mod">Moderator</span></div>
-        <div class="tcc-command" data-command="unwarn reverse warning discord thytoxicbot administrator admin"><code>/t unwarn</code><span>Reverse the warning recorded in the selected original case.</span><span class="tcc-platforms">Discord</span><span class="tcc-command-system">ThyToxicBot</span><span class="tcc-access tcc-access-admin">Admin</span></div>
-        <div class="tcc-command" data-command="unmute remove timeout discord thytoxicbot administrator admin"><code>/t unmute</code><span>Remove a timeout tied to the selected original case.</span><span class="tcc-platforms">Discord</span><span class="tcc-command-system">ThyToxicBot</span><span class="tcc-access tcc-access-admin">Admin</span></div>
-        <div class="tcc-command" data-command="unban reverse ban discord thytoxicbot administrator admin"><code>/t unban</code><span>Unban the user tied to the selected original ban case.</span><span class="tcc-platforms">Discord</span><span class="tcc-command-system">ThyToxicBot</span><span class="tcc-access tcc-access-admin">Admin</span></div>
-        <div class="tcc-command" data-command="cases search case number name id status discord thytoxicbot moderator"><code>/t cases</code><span>Search recent cases by number, member name, Discord ID, or status.</span><span class="tcc-platforms">Discord</span><span class="tcc-command-system">ThyToxicBot</span><span class="tcc-access tcc-access-mod">Moderator</span></div>
-        <div class="tcc-command" data-command="infractions current all list warning mute kick ban discord thytoxicbot moderator"><code>/t infractions</code><span>List every current infraction, with an optional warning, mute, kick, or ban filter.</span><span class="tcc-platforms">Discord</span><span class="tcc-command-system">ThyToxicBot</span><span class="tcc-access tcc-access-mod">Moderator</span></div>
-        <div class="tcc-command" data-command="caseinfo case history details discord thytoxicbot moderator"><code>/t caseinfo</code><span>Display a case, its delivery result, reason, and recent history.</span><span class="tcc-platforms">Discord</span><span class="tcc-command-system">ThyToxicBot</span><span class="tcc-access tcc-access-mod">Moderator</span></div>
-        <div class="tcc-command" data-command="appealreply reply member protected thread discord thytoxicbot moderator"><code>/t appealreply</code><span>Reply to the member through the protected case conversation.</span><span class="tcc-platforms">Discord</span><span class="tcc-command-system">ThyToxicBot</span><span class="tcc-access tcc-access-mod">Moderator</span></div>
-        <div class="tcc-command" data-command="staffnote private note member discord thytoxicbot moderator"><code>/t staffnote</code><span>Add a private staff note to a member's protected record.</span><span class="tcc-platforms">Discord</span><span class="tcc-command-system">ThyToxicBot</span><span class="tcc-access tcc-access-mod">Moderator</span></div>
-        <div class="tcc-command" data-command="notes private staff history discord thytoxicbot moderator"><code>/t notes</code><span>View the latest private staff notes for a member.</span><span class="tcc-platforms">Discord</span><span class="tcc-command-system">ThyToxicBot</span><span class="tcc-access tcc-access-mod">Moderator</span></div>
-        <div class="tcc-command" data-command="caseupdate correct reason evidence discord thytoxicbot administrator admin"><code>/t caseupdate</code><span>Correct a case reason and optionally attach additional evidence.</span><span class="tcc-platforms">Discord</span><span class="tcc-command-system">ThyToxicBot</span><span class="tcc-access tcc-access-admin">Admin</span></div>
-        <div class="tcc-command" data-command="caseclose decision accepted denied needs information closed discord thytoxicbot administrator admin"><code>/t caseclose</code><span>Record an appeal outcome, send the response, and close the case.</span><span class="tcc-platforms">Discord</span><span class="tcc-command-system">ThyToxicBot</span><span class="tcc-access tcc-access-admin">Admin</span></div>
-        <div class="tcc-command" data-command="casedelete permanent delete discord thytoxicbot owner"><code>/t casedelete</code><span>Permanently delete a case and its event history after confirmation.</span><span class="tcc-platforms">Discord</span><span class="tcc-command-system">ThyToxicBot</span><span class="tcc-access tcc-access-owner">Owner</span></div>
-        <div class="tcc-command" data-command="clearinfractions all clear reverse current crimes purge discord thytoxicbot owner"><code>/t clearinfractions</code><span>Owner only: reverse every current infraction while preserving the protected audit history.</span><span class="tcc-platforms">Discord</span><span class="tcc-command-system">ThyToxicBot</span><span class="tcc-access tcc-access-owner">Owner</span></div>
-        <div class="tcc-command" data-command="guide procedure pinned staff message discord thytoxicbot administrator admin"><code>/t guide</code><span>Refresh and pin the Appeals &amp; Moderation Review staff guide.</span><span class="tcc-platforms">Discord</span><span class="tcc-command-system">ThyToxicBot</span><span class="tcc-access tcc-access-admin">Admin</span></div>
       </div>
     </section>
 
@@ -707,78 +635,6 @@
     window.addEventListener('hashchange', () => openPanel(panelFromHash()));
     openPanel(panelFromHash());
 
-    const search = root.querySelector('#tcc-command-search');
-    const platformFilters = [...root.querySelectorAll('[data-command-platform]')];
-    let activePlatform = 'all';
-
-    const accessHierarchy = {
-      everyone: [
-        ['everyone', 'Everyone'],
-        ['mod', 'Moderator'],
-        ['admin', 'Admin'],
-        ['owner', 'Owner'],
-      ],
-      mod: [
-        ['mod', 'Moderator'],
-        ['admin', 'Admin'],
-        ['owner', 'Owner'],
-      ],
-      admin: [
-        ['admin', 'Admin'],
-        ['owner', 'Owner'],
-      ],
-      owner: [
-        ['owner', 'Owner'],
-      ],
-    };
-
-    root.querySelectorAll('.tcc-command').forEach((row) => {
-      const minimumBadge = row.querySelector(':scope > .tcc-access');
-      if (!minimumBadge) return;
-
-      const minimumRole = Object.keys(accessHierarchy).find((role) => minimumBadge.classList.contains('tcc-access-' + role));
-      if (!minimumRole) return;
-
-      const roles = accessHierarchy[minimumRole];
-      const roleList = document.createElement('span');
-      roleList.className = 'tcc-access-list';
-      roleList.setAttribute('aria-label', 'Allowed roles: ' + roles.map(([, label]) => label).join(', '));
-
-      roles.forEach(([role, label]) => {
-        const badge = document.createElement('span');
-        badge.className = 'tcc-access tcc-access-' + role;
-        badge.textContent = label;
-        roleList.appendChild(badge);
-      });
-
-      row.dataset.command += ' ' + roles.map(([role, label]) => role + ' ' + label.toLowerCase()).join(' ');
-      minimumBadge.replaceWith(roleList);
-    });
-
-    function filterCommands() {
-      const query = search.value.trim().toLowerCase();
-
-      root.querySelectorAll('.tcc-command').forEach((row) => {
-        const platformText = row.querySelector('.tcc-platforms').textContent.toLowerCase();
-        const matchesPlatform = activePlatform === 'all' || platformText.split(' · ').includes(activePlatform);
-        const matchesSearch = query.length === 0 || row.dataset.command.includes(query) || row.textContent.toLowerCase().includes(query);
-        row.hidden = !matchesPlatform || !matchesSearch;
-      });
-    }
-
-    platformFilters.forEach((button) => {
-      button.addEventListener('click', () => {
-        activePlatform = button.dataset.commandPlatform;
-        platformFilters.forEach((filter) => {
-          const isActive = filter === button;
-          filter.classList.toggle('is-active', isActive);
-          filter.setAttribute('aria-pressed', String(isActive));
-        });
-        filterCommands();
-      });
-    });
-
-    search.addEventListener('input', filterCommands);
 
     function setLiveState(platform, isLive) {
       const statusText = isLive ? 'Live' : 'Offline';
