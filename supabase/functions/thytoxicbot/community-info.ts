@@ -11,11 +11,12 @@ export const COMMUNITY_INFO_TITLES = [
   "☣️ ThyToxicBot & Toxic Command Center",
   "🎮 Game Requests, Payments & Support",
   "⚖️ Appeals, Moderation & Staff Review",
-  "🎟️ Private Tickets, Polls & Community Tools",
+  "🎟️ Private Tickets & Community Support",
 ];
 
 export const COMMUNITY_INFO_CLEANUP_TITLES = [
   ...COMMUNITY_INFO_TITLES,
+  "🎟️ Private Tickets, Polls & Community Tools",
   "☣️ ThyToxicBot",
   "⚖️ Appeals Center",
   "🎟️ Private Tickets",
@@ -29,20 +30,19 @@ export const COMMUNITY_INFO_MESSAGES = [
       title: COMMUNITY_INFO_TITLES[0],
       description: `**Our privately developed community system, created specifically for ⁅𝐓𝐡𝐲𝐓☣︎𝐱𝐢𝐜𝐆𝐚𝐦𝐞𝐫⁆ and built around how this Community actually operates.**
 
-ThyToxicBot now works together with the Toxic Command Center instead of acting as a basic moderation bot. Discord commands, protected staff tools, websites, payment verification, case records, tickets, polls, and stream automation are connected as one custom network.
+ThyToxicBot and the Toxic Command Center work together as the protected core for moderation cases, appeals, private tickets, verified donations, staff tools, and permanent system records. Dedicated public bots now handle routine chat protection, chat commands, and platform notifications so each part of the Community has one clear responsibility.
 
-• **Unified Command Network** — Game Requests, the Support Center, Appeals Center, Ticket Center, Poll Center, Command Directory, and staff workspaces share one organized system.
-• **Protected Moderation** — Authorized staff can warn, mute, kick, ban, reverse actions, search cases, review infractions, and document every important decision.
-• **Case-Based Records** — Moderation actions receive protected TTG-MOD case numbers with reasons, staff attribution, timestamps, evidence, replies, and complete event history.
+• **Focused Command Network** — The Appeals Center, Ticket Center, Support Center, protected staff workspaces, and Discord case tools share one organized system.
+• **Case-Based Moderation** — Authorized staff can warn, mute, kick, ban, reverse eligible actions, search cases, review infractions, and document important decisions through ThyToxicBot.
+• **Protected TTG-MOD Records** — Moderation actions receive case numbers containing the reason, responsible staff member, timestamps, evidence, replies, status changes, and complete event history.
 • **Appeals Integration** — Eligible members receive private directions to the Appeals Center and can continue protected communication with staff through the linked case.
-• **Private Ticket System** — Support, reports, suggestions, and staff inquiries create controlled channels with Claim Ticket and confirmed Close Ticket actions.
-• **Game Request Automation** — Requests move through Discord stages, secure PayPal verification, scheduling, game-change review, completion, and permanent history records.
-• **Poll Operations** — Staff can create and close official polls while verified viewers vote only through the protected website.
-• **Verified Support Alerts** — Confirmed PayPal support creates one receipt, one Discord record, and one queued Streamer.bot/OBS alert without duplicate playback.
-• **Permission Protection** — Sensitive commands are restricted to the Owner, Administrators, Moderators, or authorized staff according to the action being performed.
-• **Retention & Accountability** — Protected records are retained according to their system policy, while owner-only deletion and automatic cleanup prevent uncontrolled access.
+• **Private Ticket System** — General Support, Report a User, Staff Inquiry, and Suggestion tickets create controlled channels with Claim Ticket and confirmed Close Ticket actions.
+• **Verified Donation Processing** — Confirmed PayPal donations create one protected receipt, one Discord record, and one queued Streamer.bot/OBS alert without duplicate playback.
+• **Dedicated Bot Responsibilities** — Dyno handles routine Discord AutoMod, Nightbot and StreamElements handle stream-chat commands, YouTube Bot handles YouTube notices, and UB3R-B0T handles Twitch go-live notices.
+• **Permission Protection** — Sensitive tools remain restricted to the Owner, Administrators, Moderators, or specifically authorized staff according to the action being performed.
+• **Retention & Accountability** — Protected records follow their established retention policy, while owner-only deletion and automatic cleanup prevent uncontrolled access.
 
-ThyToxicBot is not a generic public bot and the Toxic Command Center is not a collection of unrelated services. They are our own custom-built community and stream-management system, designed to grow alongside ⁅𝐓𝐡𝐲𝐓☣︎𝐱𝐢𝐜𝐆𝐚𝐦𝐞𝐫⁆.`,
+ThyToxicBot is not a generic public bot, and the Toxic Command Center is not a collection of unrelated services. Together they form our custom community and stream-management system, while the other bots perform clearly assigned supporting roles.`,
       footer: { text: "ThyToxicBot • Custom-built for ⁅𝐓𝐡𝐲𝐓☣︎𝐱𝐢𝐜𝐆𝐚𝐦𝐞𝐫⁆" },
     }],
     components: [{
@@ -121,9 +121,9 @@ This process is designed to support fair review without weakening moderation. Ap
     embeds: [{
       color: 0x48e69b,
       title: COMMUNITY_INFO_TITLES[3],
-      description: `**Our Ticket Center and Poll Center give members direct, organized ways to ask for help, report concerns, submit ideas, and participate in official Community decisions.**
+      description: `**Our private Ticket Center gives members one organized place to ask for help, report concerns, contact staff, or submit a suggestion.**
 
-Both systems are operated through ThyToxicBot and the Toxic Command Center. Private matters stay private, voting stays verified, and staff actions remain organized instead of being handled through scattered messages.
+Tickets are operated through ThyToxicBot and the Toxic Command Center. Private matters stay private, staff actions remain documented, and important conversations are preserved instead of being scattered across public channels or direct messages.
 
 **Need to open a ticket? Click here:** <#1536971857088086026>
 
@@ -134,23 +134,19 @@ Both systems are operated through ThyToxicBot and the Toxic Command Center. Priv
 • **Confirmed Closing** — Close Ticket requires confirmation. The requester or authorized staff may close an open ticket, while accidental closure can be cancelled before anything is removed.
 • **Archive Before Deletion** — ThyToxicBot saves the complete available conversation and posts the permanent completion summary before deleting the private Discord channel.
 • **Failure Protection** — If the archive or ticket-log delivery fails, the private channel remains open instead of silently disappearing.
-• **Live Support Status** — The status channel shows open tickets, tickets waiting for staff, claimed tickets, today’s opened and closed totals, average first response time, and counts by ticket type.
-• **Protected Ticket Records** — Staff can review active and archived tickets through the secured website workspace. Closed ticket records automatically purge after six months.
-• **Website-Only Poll Voting** — Official votes are submitted through the Poll Center after Twitch verification; Discord announcements link viewers to the protected voting page.
-• **Changeable Vote** — One verified vote is stored per viewer for each poll, and the viewer may change that vote until the poll closes.
-• **Live Results** — Current totals and percentages update on the Poll Center, while closed polls preserve their final results.
-• **Staff Poll Controls** — Authorized staff can create polls with two to six choices, choose a preset or custom duration, close voting early, and publish the final result.
-• **Discord & Twitch Promotion** — Active polls are announced in the poll channel, available through the **/t poll** and **/t polls** commands, and promoted by Streamer.bot on Twitch every 15 minutes only while a poll is active.
-• **Owner Archive Control** — Clearing all polls is owner-only, requires exact confirmation, and archives the polls while preserving their Discord records.
+• **Live Support Status** — The status channel shows open tickets, tickets waiting for staff, claimed tickets, today’s opened and closed totals, average first-response time, and counts by ticket type.
+• **Protected Ticket Records** — Authorized staff can review active and archived tickets through the secured website workspace.
+• **Six-Month Retention** — Closed ticket records remain available for review and automatically purge after six months according to the established retention policy.
+• **Controlled Staff Access** — Ticket claims, staff actions, closure details, and completion records remain tied to the protected ticket history.
+• **Clear System Ownership** — ThyToxicBot manages the Discord ticket channels while the Toxic Command Center provides the protected website records and staff workspace.
 
-The goal is simple: private issues receive protected staff attention, while Community decisions receive one verified voting process that everyone can understand and follow.`,
-      footer: { text: "ThyToxicBot • Private support and verified community voting" },
+The goal is simple: private issues receive organized staff attention, complete records, and a clear resolution process from opening through closure.`,
+      footer: { text: "ThyToxicBot • Private support and protected ticket records" },
     }],
     components: [{
       type: 1,
       components: [
         button("Open Ticket Center", "/tickets/"),
-        button("Open Poll Center", "/polls/"),
       ],
     }],
     allowed_mentions: { parse: [] },
